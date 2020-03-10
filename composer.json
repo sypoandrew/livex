@@ -13,5 +13,20 @@
             "homepage": "http://www.sypo.uk",
             "role": "Developer"
         }
-    ]
+    ],
+    "autoload": {
+        "psr-4": {
+            "Sypo\\Livex\\": "src/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "0.1.x-dev"
+        },
+        "laravel": {
+            "providers": [
+                "Sypo\\Livex\\ServiceProvider"
+            ]
+        }
+    }
 }
