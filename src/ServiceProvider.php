@@ -4,6 +4,8 @@ namespace Sypo\Livex;
 
 use Aero\Admin\AdminModule;
 use Aero\Common\Providers\ModuleServiceProvider;
+use Aero\Common\Facades\Settings;
+use Aero\Common\Settings\SettingGroup;
 
 class ServiceProvider extends ModuleServiceProvider
 {
