@@ -16,4 +16,15 @@ class ServiceProvider extends ModuleServiceProvider
             ->routes(dirname(__DIR__).'/../routes/admin.php')
             ->route('admin.modules.livex');
     }
+	
+    public function boot(): void 
+    {
+        Settings::group('Livex', function (SettingGroup $group) {
+            $group->boolean('enabled')->default(true);
+            $group->float('still_wine_rate')->default(26.78);
+            $group->float('sparkling_wine_rate')->default(34.30);
+            $group->float('fortified_wine_rate')->default(35.70);
+            $group->integer('litre_calc')->default(9);
+        });
+    }
 }
