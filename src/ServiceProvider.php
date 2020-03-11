@@ -27,6 +27,11 @@ class ServiceProvider extends ModuleServiceProvider
             $group->float('sparkling_wine_rate')->default(34.30);
             $group->float('fortified_wine_rate')->default(35.70);
             $group->integer('litre_calc')->default(9);
+            $group->integer('stock_threshold')->default(0);
+            $group->integer('price_threshold')->default(500);
+            $group->integer('margin_markup')->default(10);
         });
+		
+		#$this->loadViewsFrom(__DIR__ . '/../resources/views/modules/livex/', 'livex');
     }
 }
