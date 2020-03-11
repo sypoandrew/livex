@@ -5,7 +5,8 @@
     "homepage": "https://www.sypo.uk",
     "license": "MIT",
     "require": {
-		"aerocommerce/admin": "^0"
+		"aerocommerce/admin": "^0",
+		"spatie/valuestore": "1.2.*"
 	},
     "authors": [
         {
@@ -26,7 +27,7 @@
         },
         "laravel": {
             "providers": [
-                "Sypo\\Livex\\ServiceProvider"
+                "Sypo\\Livex\\Providers\\ServiceProvider"
             ]
         }
     }
