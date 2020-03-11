@@ -1,5 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Sypo\Livex\Http\Controllers\ModulesController;
 
-Route::get('/', [\App\Http\Controllers\ModulesController::class, 'livex'])->name('admin.modules.livex');
+Route::get('/', [ModulesController::class, 'livex'])->name('admin.modules.livex');
