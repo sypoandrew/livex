@@ -3,6 +3,7 @@
     "type": "project",
     "description": "Livex API integration with Aero Commerce",
     "homepage": "https://www.sypo.uk",
+    "license": "MIT",
     "require": {
 		"aerocommerce/admin": "^0"
 	},
