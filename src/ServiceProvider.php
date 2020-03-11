@@ -15,7 +15,7 @@ class ServiceProvider extends ModuleServiceProvider
             ->title('Livex')
             ->summary('Livex API integration with Aero Commerce')
             #->permissions('Livex.custom') //optional
-            ->routes(dirname(__DIR__).'/../routes/admin.php')
+            ->routes(__DIR__ .'/../routes/admin.php')
             ->route('admin.modules.livex');
     }
 	
