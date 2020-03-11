@@ -28,6 +28,11 @@ class ModulesController extends Controller
      */
     public function update(Request $request)
     {
-        return redirect(routes('admin.modules.livex'));
+		$formdata = $request->json()->all();
+		Log::debug($formdata);
+		
+		
+		
+        return redirect(route('admin.modules.livex'));
     }
 }
