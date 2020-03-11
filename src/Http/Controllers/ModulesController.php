@@ -12,10 +12,22 @@ class ModulesController extends Controller
     protected $data = []; // the information we send to the view
 
     /**
-     * Check permissions
+     * Show main settings form
+     *
+     * @return \Illuminate\Http\Response
      */
-    public function livex(Request $request)
+    public function index(Request $request)
     {
         return view('modules.livex', $this->data);
+    }
+    
+	/**
+     * Update settings
+     *
+     * @return \Illuminate\Routing\Redirector|\Illuminate\Http\RedirectResponse
+     */
+    public function update(Request $request)
+    {
+        return redirect(backpack_url('dashboard'));
     }
 }

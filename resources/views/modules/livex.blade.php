@@ -2,12 +2,12 @@
 
 @section('content')
     <div class="flex pb-2 mb-4">
-        <h2 class="flex-1 m-0 p-0">Livex</h2>
+        <h2 class="flex-1 m-0 p-0">Liv-Ex</h2>
     </div>
     @include('admin::partials.alerts')
     <div class="card">
-        Admin page of Livex settings
-		<form class="flex flex-wrap">
+        Livex API integration settings for Aero Commerce
+		<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
 		<div>
 		<label for="enabled" class="block">Enabled</label>
 		<input type="text" id="name" name="name" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.enabled') }}">
