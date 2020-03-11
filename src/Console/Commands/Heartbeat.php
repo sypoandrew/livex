@@ -4,21 +4,21 @@ namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
 
-class Livex extends Command
+class Heartbeat extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'command:name';
+    protected $signature = 'livex:heartbeat';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Run the Liv-ex API heartbeat';
 
     /**
      * Create a new command instance.
@@ -37,6 +37,7 @@ class Livex extends Command
      */
     public function handle()
     {
-        //
+        $l = new \Sypo\Livex\Models\Livex;
+		$l->heartbeat();
     }
 }

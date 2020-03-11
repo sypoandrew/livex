@@ -1,6 +1,6 @@
 <?php
 
-namespace Sypo\Livex\Providers;
+namespace Sypo\Livex;
 
 use Aero\Admin\AdminModule;
 use Aero\Common\Providers\ModuleServiceProvider;
@@ -14,7 +14,7 @@ class ServiceProvider extends ModuleServiceProvider
         AdminModule::create('Livex')
             ->title('Liv-Ex')
             ->summary('Livex API integration settings for Aero Commerce')
-            ->routes(__DIR__ .'/../../routes/admin.php')
+            ->routes(__DIR__ .'/../routes/admin.php')
             ->route('admin.modules.livex');
     }
 	
