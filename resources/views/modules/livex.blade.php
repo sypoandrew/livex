@@ -6,7 +6,7 @@
     </div>
     @include('admin::partials.alerts')
     <div class="card">
-        Livex API integration settings for Aero Commerce
+        Liv-Ex API settings for Aero Commerce
 		<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
 		<div>
 		<label for="enabled" class="block">Enabled</label>

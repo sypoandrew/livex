@@ -28,6 +28,6 @@ class ModulesController extends Controller
      */
     public function update(Request $request)
     {
-        return redirect(backpack_url('dashboard'));
+        return redirect(routes('admin.modules.livex'));
     }
 }
