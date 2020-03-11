@@ -1,6 +1,6 @@
 <?php
 
-namespace Sypo\Livex;
+namespace Sypo\Livex\Providers;
 
 use Aero\Admin\AdminModule;
 use Aero\Common\Providers\ModuleServiceProvider;
