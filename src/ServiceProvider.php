@@ -12,8 +12,8 @@ class ServiceProvider extends ModuleServiceProvider
     public function register(): void 
     {
         AdminModule::create('Livex')
-            ->title('Livex')
-            ->summary('Livex API integration with Aero Commerce')
+            ->title('Liv-Ex')
+            ->summary('Livex API integration settings for Aero Commerce')
             #->permissions('Livex.custom') //optional
             ->routes(__DIR__ .'/../routes/admin.php')
             ->route('admin.modules.livex');

@@ -7,5 +7,28 @@
     @include('admin::partials.alerts')
     <div class="card">
         Admin page of Livex settings
+		<form class="flex flex-wrap">
+		<div>
+		<label for="enabled" class="block">Enabled</label>
+		<input type="text" id="name" name="name" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.enabled') }}">
+		</div>
+		<div>
+		<label for="enabled" class="block">Rates per X litre</label>
+		<input type="text" id="name" name="name" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.litre_calc') }}">
+		</div>
+		<div>
+		<label for="enabled" class="block">Still Wine Rate</label>
+		<input type="text" id="name" name="name" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.still_wine_rate') }}">
+		</div>
+		<div>
+		<label for="enabled" class="block">Sparkling Wine Rate</label>
+		<input type="text" id="name" name="name" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.sparkling_wine_rate') }}">
+		</div>
+		<div>
+		<label for="enabled" class="block">Fortified Wine Rate</label>
+		<input type="text" id="name" name="name" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.fortified_wine_rate') }}">
+		</div>
+		</form>
+		
     </div>
 @endsection
