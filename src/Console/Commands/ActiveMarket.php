@@ -11,7 +11,7 @@ class ActiveMarket extends Command
      *
      * @var string
      */
-    protected $signature = 'livex:run';
+    protected $signature = 'sypo:livex:run';
 
     /**
      * The console command description.
@@ -38,6 +38,6 @@ class ActiveMarket extends Command
     public function handle()
     {
         $l = new \Sypo\Livex\Models\Livex;
-		$l->heartbeat();
+		$l->active_market();
     }
 }
