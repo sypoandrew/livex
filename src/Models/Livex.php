@@ -3,12 +3,13 @@
 namespace Sypo\Livex\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 
 class Livex extends Model
 {
     protected $base_url = 'https://api.liv-ex.com/';
-    private $client_key = config('LIVEX_CLIENT_KEY');
-    private $client_secret = config('LIVEX_CLIENT_SECRET');
 
     /**
      * Create a new command instance.
@@ -29,18 +30,116 @@ class Livex extends Model
     {
         $url = $this->base_url . 'exchange/heartbeat';
         $headers = [
-			'CLIENT_KEY' => $this->client_key,
-			'CLIENT_SECRET' => $this->client_secret,
+			'CLIENT_KEY' => config('LIVEX_CLIENT_KEY'),
+			'CLIENT_SECRET' => config('LIVEX_CLIENT_SECRET'),
 			'ACCEPT' => 'application/json',
 			'CONTENT-TYPE' => 'application/json',
 		];
 		
-        $client = new \GuzzleHttp\Client();
-		$response = $client->request('GET', $url);
+		try {
+			#$client = new Client();
+			#$client->setDefaultOption('headers', $headers);
+			#$response = $client->request('GET', $url);
+			
+			$client = new Client();
+			#$client->setDefaultOption('headers', $headers);
+			$response = $client->get($url, ['headers' => $headers]);
+			
+			/* $client = new Client($url, [
+				'base_url' => $url,
+				'defaults' => [
+					'headers' => ['Foo' => 'Bar'],
+					'query'   => ['testing' => '123'],
+					'auth'    => ['username', 'password'],
+					'proxy'   => 'tcp://localhost:80'
+				]
+			]);
+			$response = $client->send(); */
+			
+			
 
-		$status_code = $response->getStatusCode(); // 200
-		$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
-		$res = $response->getBody();
+			$status_code = $response->getStatusCode(); // 200
+			$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+			$res = $response->getBody();
+			
+			Log::debug('heartbeat 1');
+			Log::debug($status_code);
+			Log::debug($content_type);
+			Log::debug($res);
+		}
+		catch(RequestException $e) {
+			Log::debug($e);
+		}
+		
+		try {
+			#$client = new Client();
+			#$client->setDefaultOption('headers', $headers);
+			#$response = $client->request('GET', $url);
+			
+			$client = new Client();
+			#$client->setDefaultOption('headers', $headers);
+			$response = $client->get($url, ['auth' =>  [config('LIVEX_CLIENT_KEY'), config('LIVEX_CLIENT_SECRET')], 'headers' => $headers]);
+			
+			/* $client = new Client($url, [
+				'base_url' => $url,
+				'defaults' => [
+					'headers' => ['Foo' => 'Bar'],
+					'query'   => ['testing' => '123'],
+					'auth'    => ['username', 'password'],
+					'proxy'   => 'tcp://localhost:80'
+				]
+			]);
+			$response = $client->send(); */
+			
+			
+
+			$status_code = $response->getStatusCode(); // 200
+			$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+			$res = $response->getBody();
+			
+			Log::debug('heartbeat 2');
+			Log::debug($status_code);
+			Log::debug($content_type);
+			Log::debug($res);
+		}
+		catch(RequestException $e) {
+			Log::debug($e);
+		}
+		
+		try {
+			#$client = new Client();
+			#$client->setDefaultOption('headers', $headers);
+			#$response = $client->request('GET', $url);
+			
+			$client = new Client();
+			#$client->setDefaultOption('headers', $headers);
+			$response = $client->get($url, ['auth' =>  [config('LIVEX_CLIENT_KEY'), config('LIVEX_CLIENT_SECRET')]]);
+			
+			/* $client = new Client($url, [
+				'base_url' => $url,
+				'defaults' => [
+					'headers' => ['Foo' => 'Bar'],
+					'query'   => ['testing' => '123'],
+					'auth'    => ['username', 'password'],
+					'proxy'   => 'tcp://localhost:80'
+				]
+			]);
+			$response = $client->send(); */
+			
+			
+
+			$status_code = $response->getStatusCode(); // 200
+			$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+			$res = $response->getBody();
+			
+			Log::debug('heartbeat 3');
+			Log::debug($status_code);
+			Log::debug($content_type);
+			Log::debug($res);
+		}
+		catch(RequestException $e) {
+			Log::debug($e);
+		}
     }
 
     /**
@@ -52,8 +151,8 @@ class Livex extends Model
     {
         $url = $this->base_url . 'exchange/v4/activeMarket';
         $headers = [
-			'CLIENT_KEY' => $this->client_key,
-			'CLIENT_SECRET' => $this->client_secret,
+			'CLIENT_KEY' => config('LIVEX_CLIENT_KEY'),
+			'CLIENT_SECRET' => config('LIVEX_CLIENT_SECRET'),
 			'ACCEPT' => 'application/json',
 			'CONTENT-TYPE' => 'application/json',
 		];
@@ -71,7 +170,8 @@ class Livex extends Model
 		];
 		
 		
-        $client = new \GuzzleHttp\Client($headers);
+        $client = new \GuzzleHttp\Client();
+		$client->setDefaultOption('headers', $headers);
 		$response = $client->request('GET', $url, $params);
 
 		$status_code = $response->getStatusCode(); // 200
@@ -88,8 +188,8 @@ class Livex extends Model
     {
         $url = $this->base_url . 'search/v1/searchMarket';
         $headers = [
-			'CLIENT_KEY' => $this->client_key,
-			'CLIENT_SECRET' => $this->client_secret,
+			'CLIENT_KEY' => config('LIVEX_CLIENT_KEY'),
+			'CLIENT_SECRET' => config('LIVEX_CLIENT_SECRET'),
 			'ACCEPT' => 'application/json',
 			'CONTENT-TYPE' => 'application/json',
 		];
@@ -102,7 +202,8 @@ class Livex extends Model
 		];
 		
 		
-        $client = new \GuzzleHttp\Client($headers);
+        $client = new \GuzzleHttp\Client();
+		$client->setDefaultOption('headers', $headers);
 		$response = $client->request('GET', $url, $params);
 
 		$status_code = $response->getStatusCode(); // 200
