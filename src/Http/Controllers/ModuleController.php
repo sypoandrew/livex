@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Aero\Admin\Facades\Admin;
 use Aero\Admin\Http\Controllers\Controller;
+use Spatie\Valuestore\Valuestore;
 
 class ModuleController extends Controller
 {
