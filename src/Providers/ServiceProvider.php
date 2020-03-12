@@ -6,6 +6,7 @@ use Aero\Admin\AdminModule;
 use Aero\Common\Providers\ModuleServiceProvider;
 use Aero\Common\Facades\Settings;
 use Aero\Common\Settings\SettingGroup;
+use Spatie\Valuestore\Valuestore;
 
 class ServiceProvider extends ModuleServiceProvider
 {
