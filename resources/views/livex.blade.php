@@ -6,11 +6,16 @@
     </div>
     @include('admin::partials.alerts')
 	<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
+		@csrf
 		<div class="card mt-4 w-full">
 			<h3>Liv-Ex API settings for Aero Commerce</h3>
 			<div class="mt-4 w-full">
-			<label for="enabled" class="block">Enabled</label>
-			<input type="text" id="enabled" name="enabled" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.enabled') }}">
+			<label for="enabled" class="block">
+			<label class="checkbox">
+			<input type="checkbox" id="enabled" name="enabled" value="1">
+			<span></span>
+			</label>Enabled
+			</label>
 			</div>
 			<div class="mt-4 w-full">
 			<label for="enabled" class="block">Stock Threshold</label>
