@@ -21,7 +21,7 @@ class ModuleController extends Controller
         $l = new \Sypo\Livex\Models\Livex;
 		$l->heartbeat();
 		
-        return view('modules.livex', $this->data);
+        return view('livex::livex', $this->data);
     }
     
 	/**
@@ -31,9 +31,28 @@ class ModuleController extends Controller
      */
     public function update(Request $request)
     {
+		$res = ['success'=>false,'data'=>false,'error'=>[]];
+		
+        $validator = \Validator::make($request->all(), [
+            'stock_threshold' => 'required|int',
+            'price_threshold' => 'required|int',
+            'margin_markup' => 'required|int',
+        ]);
+		
+		if($validator->fails()){
+			$res['error'] = $validator->errors()->all();
+			return response()->json($res);
+		}
+		
 		$formdata = $request->json()->all();
 		Log::debug($formdata);
 		
+		
+		/* $valuestore = Valuestore::make(storage_path('app/livex.json'));
+		$valuestore->put('enabled', $formdata['enabled']);
+		$valuestore->put('stock_threshold', $formdata['stock_threshold']);
+		$valuestore->put('price_threshold', $formdata['price_threshold']);
+		$valuestore->put('margin_markup', $formdata['margin_markup']); */
 		
 		
         return redirect(route('admin.modules.livex'));
