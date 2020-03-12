@@ -27,6 +27,6 @@ class ServiceProvider extends ModuleServiceProvider
             $group->integer('margin_markup')->default(10);
         });
 		
-		#$this->loadViewsFrom(__DIR__ . '/../../resources/views/modules/livex/', 'livex');
+		$this->loadViewsFrom(__DIR__ . '/../../resources/views/', 'livex');
     }
 }

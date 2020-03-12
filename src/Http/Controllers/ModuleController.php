@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Aero\Admin\Facades\Admin;
 use Aero\Admin\Http\Controllers\Controller;
 
-class ModulesController extends Controller
+class ModuleController extends Controller
 {
     protected $data = []; // the information we send to the view
 
