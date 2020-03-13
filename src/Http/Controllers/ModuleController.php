@@ -20,7 +20,8 @@ class ModuleController extends Controller
     public function index(Request $request)
     {
         $l = new \Sypo\Livex\Models\Livex;
-		$l->heartbeat();
+		#$l->heartbeat();
+		$l->search_market();
 		
         return view('livex::livex', $this->data);
     }
