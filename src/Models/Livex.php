@@ -4,17 +4,29 @@ namespace Sypo\Livex\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Aero\Catalog\Models\Price;
 use Aero\Catalog\Models\Product;
 use Aero\Catalog\Models\Variant;
 use Aero\Catalog\Models\Tag;
 use Aero\Catalog\Models\TagGroup;
+use Aero\Catalog\Models\Attribute;
+use Aero\Common\Models\Currency;
+use Aero\Common\Models\Image;
+use Illuminate\Http\UploadedFile;
+use Spatie\LaravelImageOptimizer\Facades\ImageOptimizer;
 
 class Livex extends Model
 {
+    /**
+     * @var string
+     */
+    protected $language;
     protected $environment;
     protected $base_url;
+    private $library_files;
 
     /**
      * Create a new command instance.
@@ -23,6 +35,7 @@ class Livex extends Model
      */
     public function __construct()
     {
+        $this->language = config('app.locale');
         $this->environment = env('LIVEX_ENV');
         $this->base_url = 'https://sandbox-api.liv-ex.com/';
         if($this->environment == 'live'){
@@ -45,7 +58,7 @@ class Livex extends Model
     }
 
     /**
-     * Get the client API key
+     * Get the client API secret
      *
      * @return string
      */
@@ -58,36 +71,17 @@ class Livex extends Model
     }
 
     /**
-     * Get all tags for a specified group
+     * Get all required tag groups for importing tag data
      *
-     * @return array
+     * @return Aero\Catalog\Models\TagGroup
      */
-    public function get_tags_by_group($group)
+    protected function get_tag_groups()
     {
-		$tags = Tag::select('tag_groups.name as tag_group', 'tags.name as value')->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')->where('tag_groups.name', 'like', '%'.$group.'%')->get();
-		
-		$arr = [];
-		foreach($tags as $t){
-			$tag_group = json_decode($t->tag_group);
-			$tag_value = json_decode($t->value);
-			$arr[$tag_value->en] = $tag_value->en;
-		}
-		Log::debug($arr);
-		return $arr;
-    }
-
-    /**
-     * Heartbeat API – Check that Liv-ex is up and available
-     *
-     * @return void
-     */
-    public static function get_tag_groups()
-    {
-		$groups = TagGroup::whereIn('name->en', ['Bottle Size', 'Case Size', 'Colour', 'Country', 'Region', 'Sub Region', 'Vintage', 'Wine Type', 'Burgundy Cru'])->get();
+		$groups = TagGroup::whereIn("name->{$this->language}", ['Bottle Size', 'Case Size', 'Colour', 'Country', 'Region', 'Sub Region', 'Vintage', 'Wine Type', 'Burgundy Cru'])->get();
 		
 		$arr = [];
 		foreach($groups as $g){
-			$arr[$g->name] = $g->id;
+			$arr[$g->name] = $g;
 		}
 		#Log::debug($arr);
 		return $arr;
@@ -167,9 +161,30 @@ class Livex extends Model
 		
 		Log::debug(__FUNCTION__);
 		#Log::debug($status_code);
-		Log::debug($res);
+		#Log::debug($res);
 		
-		$groups = self::get_tag_groups();
+		$groups = $this->get_tag_groups();
+		#Log::debug($groups);
+		#dd($groups);
+		
+		$categories = [3, 5]; #Buy Wine | Liv-Ex wines
+		
+		$attr = [];
+		$attributes = Attribute::select('id', 'name')->get();
+		foreach($attributes as $a){
+			$attr[$a->name] = $a->id;
+		}
+		#dd($attr);
+		
+		$currency = Currency::where('code', 'GBP')->first();
+		
+		#test
+		#dd('test handle image');
+		#$p = Product::find(1577);
+		#$wine_type = 'still';
+		#$colour = 'red';
+		#$this->handlePlaceholderImage($p, $wine_type, $colour);
+		#dd('test handle image done');
 		
 		
 		if($body = $response->getBody()){
@@ -190,47 +205,54 @@ class Livex extends Model
 				
 				if(isset($data['searchResponse'])){
 					foreach($data['searchResponse'] as $item){
-						#Log::debug($item);
+						Log::debug($item);
 						
 						$i++;
 						
-						try{
-							
-							$lwin = $item['lwin'];
-							$name = $item['lwinName'];
-							$country = $item['lwinCountry'];
-							$region = $item['lwinRegion'];
-							$subregion = $item['lwinSubRegion'];
-							$colour = $item['lwinColour'];
-							$vintage = $item['vintage'];
-							
-							#dd($item);
+						$lwin = $item['lwin'];
+						$name = $item['lwinName'];
+						$country = $item['lwinCountry'];
+						$region = $item['lwinRegion'];
+						$subregion = $item['lwinSubRegion'];
+						$colour = $item['lwinColour'];
+						$vintage = $item['vintage'];
+						
+						#dd($item);
 
-							$markets = $item['market'];
-							if(count($markets) > 1){
-								#handle multi market differently??
+						$markets = $item['market'];
+						if(count($markets) > 1){
+							#handle multi market differently??
+						}
+						
+						if(!$markets){
+							dd($item);
+						}
+						
+						foreach($markets as $market){
+							if(!count($market['depth']['offers']['offer'])){
+								#no active offers - skip this item
+								#dd($item);
+								continue;
 							}
+							$sku = $market['lwin']; #LWIN18
+							$dutyPaid = $market['special']['dutyPaid']; #true/false
+							$minimumQty = $market['special']['minimumQty'];
 							
-							if(!$markets){
-								dd($item);
-							}
-							
-							foreach($markets as $market){
-								if(!count($market['depth']['offers']['offer'])){
-									#no active offers - skip this item
-									#dd($item);
-									continue;
-								}
-								$sku = $market['lwin']; #LWIN18
-								$dutyPaid = $market['special']['dutyPaid']; #true/false
-								$minimumQty = $market['special']['minimumQty'];
+							$burgundy_cru = '';
+
+							try{
 								
-								$burgundy_cru = '';
-
+								if($created_p >= 1){
+									die;
+								}
+								
+								
+								
 								$p = Product::where('model', 'LX'.$sku)->first();
 								if($p != null){
 									#already on system - just update the essentials
 									Log::debug('update the variant LX'.$sku);
+									dd('update the variant LX'.$sku);
 									
 									if($dutyPaid){
 										$variant = Variant::where('product_id', $p->id)->where('sku', 'like', '%DP')->first();
@@ -241,37 +263,42 @@ class Livex extends Model
 									
 									$variant->stock_level = $market['depth']['offers']['offer'][0]['quantity'];
 									$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
-									/* if($variant->save()){
+									if($variant->save()){
 										$updated++;
 									}
 									else{
 										$update_failed++;
-									} */
+									}
 								}
 								else{
 									#not currently on system - create it
 									Log::debug('create LX'.$sku);
+									#dd('create LX'.$sku);
 									
-									$pack_size = $market['packSize'];
+									$case_size = $market['packSize'];
 									$bottle_size = $market['bottleSize']; #data in zero-padded millilitres e.g. 00750
 									$bottle_size = self::format_bottle_size($bottle_size);
 									Log::debug($bottle_size);
 									
 									
 									$p = new Product;
-									$p->sku = 'LX'.$sku;
+									$p->model = 'LX'.$sku;
 									$p->name = $name;
-									$p->summary = ['en' => $name];
-									$p->description = ['en' => $name];
+									#$p->summary = ['en' => $name];
+									#$p->description = ['en' => $name];
+									$p->summary = $name;
+									$p->description = $name;
+									$p->active = false; #initially hide - to be vetted prior to listing on website
+									$p->type = 'variant';
 									
-									Log::debug('groupid:');
-									#dd(TagGroup::where('name->en', 'Bottle Size')->first('id')->id);
-									#dd(TagGroup::select('id')->where('name->en', 'Burgundy Cru')->first()->id);
 									
-									/* 
 									if($p->save()){
 										$created_p++;
 										
+										#add into categories
+										foreach($categories as $category_id){
+											$p->categories()->syncWithoutDetaching([$category_id => ['sort' => $p->categories()->count()]]);
+										}
 										
 										#do some assumptions for wine type...
 										if($country == 'Portugal'){
@@ -285,219 +312,331 @@ class Livex extends Model
 										}
 										
 										#Bottle Size tag
+										$tag_group = $groups['Bottle Size'];
+										$tag = $this->findOrCreateTag($bottle_size, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
 										
-										#$tag_group_id = TagGroup::select('id')->where('name->en', 'Bottle Size')->first()->id;
-										$tag_group_id = $groups['Bottle Size'];
-										$t = Tag::where('tag_group_id', $tag_group_id)->where('name->en', $bottle_size)->first();
-										if($t === null){
-											$t = new Tag;
-											$t->name = ['en' => $bottle_size];
-											$t->tag_group_id = $tag_group_id;
-											$t->save();
-											
-											#link tag to product
-											$p->tag($t);
-										}
-										else{
-											#link tag to product
-											$p->tag($t);
-										}
-										
-										#Pack Size tag
-										#$tag_group_id = TagGroup::select('id')->where('name->en', 'Pack Size')->first()->id;
-										$tag_group_id = $groups['Pack Size'];
-										$t = Tag::where('tag_group_id', $tag_group_id)->where('name->en', $pack_size)->first();
-										if($t === null){
-											$t = new Tag;
-											$t->name = ['en' => $pack_size];
-											$t->tag_group_id = $tag_group_id;
-											$t->save();
-											
-											#link tag to product
-											$p->tag($t);
-										}
-										else{
-											#link tag to product
-											$p->tag($t);
-										}
-										
+										#Case Size tag
+										$tag_group = $groups['Case Size'];
+										$tag = $this->findOrCreateTag($case_size, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
 										
 										#Wine Type tag
-										#$tag_group_id = TagGroup::select('id')->where('name->en', 'Wine Type')->first()->id;
-										$tag_group_id = $groups['Wine Type'];
-										$t = Tag::where('tag_group_id', $tag_group_id)->where('name->en', $wine_type)->first();
-										if($t === null){
-											$t = new Tag;
-											$t->name = ['en' => $wine_type];
-											$t->tag_group_id = $tag_group_id;
-											$t->save();
-											
-											#link tag to product
-											$p->tag($t);
-										}
-										else{
-											#link tag to product
-											$p->tag($t);
-										}
+										$tag_group = $groups['Wine Type'];
+										$tag = $this->findOrCreateTag($wine_type, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
 										
 										#Country tag
-										#$tag_group_id = TagGroup::select('id')->where('name->en', 'Country')->first()->id;
-										$tag_group_id = $groups['Country'];
-										$t = Tag::where('tag_group_id', $tag_group_id)->where('name->en', $country)->first();
-										if($t === null){
-											$t = new Tag;
-											$t->name = ['en' => $country];
-											$t->tag_group_id = $tag_group_id;
-											$t->save();
-											
-											#link tag to product
-											$p->tag($t);
-										}
-										else{
-											#link tag to product
-											$p->tag($t);
-										}
+										$tag_group = $groups['Country'];
+										$tag = $this->findOrCreateTag($country, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
 										
 										#Region tag
-										#$tag_group_id = TagGroup::select('id')->where('name->en', 'Region')->first()->id;
-										$tag_group_id = $groups['Region'];
-										$t = Tag::where('tag_group_id', $tag_group_id)->where('name->en', $region)->first();
-										if($t === null){
-											$t = new Tag;
-											$t->name = ['en' => $region];
-											$t->tag_group_id = $tag_group_id;
-											$t->save();
-											
-											#link tag to product
-											$p->tag($t);
-										}
-										else{
-											#link tag to product
-											$p->tag($t);
-										}
+										$tag_group = $groups['Region'];
+										$tag = $this->findOrCreateTag($region, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
 										
+										#Sub Region tag
 										if($subregion){
-											#$tag_group_id = TagGroup::select('id')->where('name->en', 'Sub Region')->first()->id;
-											$tag_group_id = $groups['Sub Region'];
-											$t = Tag::where('tag_group_id', $tag_group_id)->where('name->en', $subregion)->first();
-											if($t === null){
-												$t = new Tag;
-												$t->name = ['en' => $subregion];
-												$t->tag_group_id = $tag_group_id;
-												$t->save();
-												
-												#link tag to product
-												$p->tag($t);
-											}
-											else{
-												#link tag to product
-												$p->tag($t);
-											}
+											$tag_group = $groups['Sub Region'];
+											$tag = $this->findOrCreateTag($subregion, $tag_group);
+											$p->tags()->syncWithoutDetaching($tag);
 										}
-										
 										
 										#Colour tag
-										#$tag_group_id = TagGroup::select('id')->where('name->en', 'Colour')->first()->id;
-										$tag_group_id = $groups['Colour'];
-										$t = Tag::where('tag_group_id', $tag_group_id)->where('name->en', $colour)->first();
-										if($t === null){
-											$t = new Tag;
-											$t->name = ['en' => $colour];
-											$t->tag_group_id = $tag_group_id;
-											$t->save();
-											
-											#link tag to product
-											$p->tag($t);
-										}
-										else{
-											#link tag to product
-											$p->tag($t);
-										}
+										$tag_group = $groups['Colour'];
+										$tag = $this->findOrCreateTag($colour, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
 										
 										#Vintage tag
-										#$tag_group_id = TagGroup::select('id')->where('name->en', 'Vintage')->first()->id;
-										$tag_group_id = $groups['Vintage'];
-										$t = Tag::where('tag_group_id', $tag_group_id)->where('name->en', $vintage)->first();
-										if($t === null){
-											$t = new Tag;
-											$t->name = ['en' => $vintage];
-											$t->tag_group_id = $tag_group_id;
-											$t->save();
-											
-											#link tag to product
-											$p->tag($t);
-										}
-										else{
-											#link tag to product
-											$p->tag($t);
-										}
+										$tag_group = $groups['Vintage'];
+										$tag = $this->findOrCreateTag($vintage, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
 										
+										#Burgundy Cru tag
 										if($burgundy_cru){
-											$t = new Tag;
-											$t->name = ['en' => $burgundy_cru];
-											$t->tag_group_id = TagGroup::select('id')->where('name->en', 'Burgundy Cru')->first()->id;
-											$t->save();
-											
-											#link tag to product
-											$p->tag($t);
+											$tag_group = $groups['Burgundy Cru'];
+											$tag = $this->findOrCreateTag($burgundy_cru, $tag_group);
+											$p->tags()->syncWithoutDetaching($tag);
 										}
 										
-										
-										
-										
-										
-										
-										
-										
+										#create the in-bond variant
 										$variant = new Variant;
 										$variant->product_id = $p->id;
 										$variant->stock_level = $market['depth']['offers']['offer'][0]['quantity'];
 										$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
-										$variant->sku = $p->sku.'IB';
+										$variant->sku = $p->model.'IB';
 										if($dutyPaid){
-											$variant->sku = $p->sku.'DP';
+											$variant->sku = $p->model.'DP';
 										}
 										if($variant->save()){
 											$created_v++;
+											
+											#################
+											#TO DO - handle price and attrbute settings for variant
+											#################
+											
+											#add the attribute for the variant Bond/Duty Paid
+											if($dutyPaid){
+												$variant->attributes()->syncWithoutDetaching([$attr['Duty Paid'] => ['sort' => $variant->attributes()->count()]]);
+											}
+											else{
+												$variant->attributes()->syncWithoutDetaching([$attr['Bond'] => ['sort' => $variant->attributes()->count()]]);
+											}
+											
+											#add the variant price
+											$price = new Price([
+												'variant_id' => $variant->id,
+												'product_tax_group_id' => $variant->product_tax_group_id,
+												'product_id' => $p->id,
+												'quantity' => $variant->stock_level,
+												'currency_code' => $currency->code,
+											]);
+											
+											$price->value = $market['depth']['offers']['offer'][0]['price'] * 100;
+											
+											$price->save();
 										}
 										else{
 											$create_v_failed++;
 										}
+										
+										#Handle image
+										$this->handlePlaceholderImage($p, $wine_type, $colour);
 									}
 									else{
 										$create_p_failed++;
 									}
-									 */
-									
 								}
+								
+								#dd($p);
+								dd($p->id);
+								die;
 							}
-							
-							
-							
-							
-							
-							
-							
-							
-							
-							
-							
-							
-						}
-						catch(ErrorException  $e){
-							Log::debug($e);
-						}
-						catch(Exception $e){
-							
-						}
-						
-						
+							catch(ErrorException  $e){
+								Log::debug($e);
+							}
+							catch(Exception $e){
+								Log::debug($e);
+							}
+						} #end markets loop
 					} #end search response loop
 				} #end check for search response
 			} #end check for OK status
 		}
     }
-	
+
+    /**
+     * @param $name
+     * @param \Aero\Catalog\Models\TagGroup $group
+     * @return \Aero\Catalog\Models\Tag
+     */
+    protected function findOrCreateTag($name, TagGroup $group)
+    {
+        $tag = $group->tags()->where("name->{$this->language}", $name)->first();
+
+        if (! $tag) {
+            $tag = new Tag();
+            $tag->setTranslation('name', $this->language, $name);
+
+            $group->tags()->save($tag);
+        }
+
+        return $tag;
+    }
+
+    /**
+     * @param \Aero\Catalog\Models\Product $product
+     * @param string $wine_type
+     * @param string $colour
+     * @return void
+     */
+    protected function handlePlaceholderImage(\Aero\Catalog\Models\Product $product, $wine_type, $colour)
+    {
+		$image_src = null;
+		
+		Log::debug(__FUNCTION__);
+		
+		if(!$this->library_files){
+			$files = File::files(storage_path('app/image_library/library/'));
+			foreach($files as $file){
+				$this->library_files[] = pathinfo($file)['basename'];
+			}
+		}
+		#dd($this->library_files);
+		
+		$image_name = '';
+		
+		#check if we have one in the library
+		# - first check LWIN7 with space
+		$lwin7 = substr(str_replace('LX', '', $product->model), 0, 7);
+		$lwin7_found = false;
+		foreach($this->library_files as $filename){
+			if(substr($filename, 0, 8) == $lwin7 . ' '){
+				$lwin7_found = true;
+				$image_name = $filename;
+				break;
+			}
+		}
+		
+		# - second check LWIN6 with space
+		if(!$lwin7_found){
+			$lwin6 = substr(str_replace('LX', '', $product->model), 0, 6);
+			$lwin6_found = false;
+			
+			foreach($this->library_files as $filename){
+				if(substr($filename, 0, 7) == $lwin6 . ' '){
+					$lwin6_found = true;
+					$image_name = $filename;
+					break;
+				}
+			}
+		}
+		
+		if($image_name){
+			$image_src = storage_path('app/image_library/library/'.$image_name);
+			Log::debug('use library image - '.$image_src);
+		}
+		else{
+			#deduce image from the colour/type using the plain default images 
+			
+			if($wine_type == 'sparkling'){
+				if($colour == 'rose'){
+					$image_name = 'sparklingrose.png';
+				}
+				else{
+					$image_name = 'sparkling.png';
+				}
+			}
+			elseif($wine_type == 'fortified'){
+				$image_name = 'fortified.png';
+			}
+			elseif($colour == 'red'){
+				$image_name = 'red.png';
+			}
+			elseif($colour == 'rose'){
+				$image_name = 'rose.png';
+			}
+			elseif($colour == 'white'){
+				$image_name = 'white.png';
+			}
+			
+			if($image_name){
+				$image_src = storage_path('app/image_library/defaults/'.$image_name);
+			}
+			Log::debug('use default image - '.$image_src);
+		}
+		
+		if($image_src !== null){
+			$this->createOrUpdateImage($product, $image_src);
+		}
+	}
+
+    /**
+     * @param \Aero\Catalog\Models\Product $product
+     * @param string $src
+     * @return void
+     */
+    protected function createOrUpdateImage(\Aero\Catalog\Models\Product $product, $src)
+    {
+        $image = null;
+        $existing = null;
+        $update = null;
+
+        if (isset($src)) {
+            $temp = tempnam(sys_get_temp_dir(), 'aero-product-image');
+
+            $url = $src;
+
+            try {
+                $context = stream_context_create([
+                    'http' => [
+                        'user_agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36',
+                    ],
+                ]);
+
+                $image = file_get_contents($url, false, $context);
+            } catch (\Exception $e) {
+                Log::debug("<error>Error downloading image {$url}: {$e->getMessage()}</error>");
+                $image = null;
+            }
+
+            if ($image) {
+                file_put_contents($temp, $image);
+
+                $file = new UploadedFile($temp, basename($url));
+
+                $type = $file->getMimeType();
+                $hash = md5(file_get_contents($file->getRealPath()));
+
+                $image = Image::where('hash', $hash)->first();
+
+                if (! $image) {
+                    try {
+                        [$width, $height] = getimagesize($file->getRealPath());
+
+                        $name = $file->storePublicly('images/products', 'public');
+
+                        $image = Image::create([
+                            'file' => $name,
+                            'type' => $type,
+                            'width' => $width,
+                            'height' => $height,
+                            'hash' => $hash,
+                            'source' => $url,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::debug("<error>Error processing image {$url}: {$e->getMessage()}</error>");
+                        $image = null;
+                    }
+                }
+            }
+
+            unlink($temp);
+        }
+
+        $position = null;
+        $attribute = null;
+
+        $default = true;
+
+        if ($image) {
+            $existing = $product->allImages()->where('image_id', $image->id)->first();
+        }
+
+        if (! $existing && $image) {
+            $position = $product->allImages()->count();
+
+            /** @var $update \Aero\Catalog\Models\ProductImage */
+            $update = $product->allImages()->create([
+                'image_id' => $image->id,
+                'default' => $default,
+                'sort' => $position,
+            ]);
+
+            if ($attribute) {
+                $update->attributes()->syncWithoutDetaching([$attribute->id => ['sort' => $position]]);
+            }
+        } elseif ($existing) {
+            $attributes = [
+                'default' => $default,
+            ];
+
+            $existing->update($attributes);
+
+            $update = $existing;
+        }
+
+        if ($update) {
+            $update->save();
+        }
+    }
+
+    /**
+     * @param string $bottle_size
+     * 
+     * @return string
+     */
 	public static function format_bottle_size($bottle_size){
 		$size = (int) $bottle_size;
 		if($size < 1000){
