@@ -90,7 +90,7 @@ class Livex extends Model
     /**
      * Heartbeat API – Check that Liv-ex is up and available
      *
-     * @return void
+     * @return boolean
      */
     public function heartbeat()
     {
@@ -116,13 +116,60 @@ class Livex extends Model
 			$res = $response->getBody();
 			
 			Log::debug('heartbeat');
-			Log::debug($status_code);
-			Log::debug($res);
-			#Log::debug($res->status);
+			#Log::debug($status_code);
+			#Log::debug($res);
+			
+			$data = json_decode($response->getBody(), true);
+			Log::debug($data);
+			if($data['status'] == 'OK'){
+				return true;
+			}
 		}
 		catch(RequestException $e) {
-			Log::debug($e);
+			Log::warning($e);
 		}
+		
+		return false;
+    }
+
+    /**
+     * Calculate total value of items in basket of Livex items to prevent CC option in checkout
+     *
+     * @return boolean
+     */
+    public function basket_limit_livex_items_reached()
+    {
+		
+    }
+
+    /**
+     * Order Status API – check status of offers in basket (prior to checkout payment)
+     *
+     * @return void
+     */
+    public function order_status()
+    {
+		
+    }
+
+    /**
+     * Orders API – check status of offers in basket (prior to checkout payment)
+     *
+     * @return void
+     */
+    public function add_order()
+    {
+		
+    }
+
+    /**
+     * Orders API – Check for failed bids and delete (after checkout payment)
+     *
+     * @return void
+     */
+    public function cancel_order()
+    {
+		
     }
 
     /**
@@ -190,6 +237,7 @@ class Livex extends Model
 		if($body = $response->getBody()){
 			$data = json_decode($response->getBody(), true);
 			
+			Log::debug($data);
 			#Log::debug($data['pageInfo']);
 			if($data['status'] == 'OK'){
 				$total = $data['pageInfo']['totalResults'];
@@ -372,9 +420,7 @@ class Livex extends Model
 										if($variant->save()){
 											$created_v++;
 											
-											#################
-											#TO DO - handle price and attrbute settings for variant
-											#################
+											Log::debug('variant '.$variant->sku.' created successfully');
 											
 											#add the attribute for the variant Bond/Duty Paid
 											if($dutyPaid){
@@ -382,6 +428,10 @@ class Livex extends Model
 											}
 											else{
 												$variant->attributes()->syncWithoutDetaching([$attr['Bond'] => ['sort' => $variant->attributes()->count()]]);
+											}
+											
+											if(!$variant->attributes()->count()){
+												Log::debug('variant attribute failed to create');
 											}
 											
 											#add the variant price
@@ -395,10 +445,17 @@ class Livex extends Model
 											
 											$price->value = $market['depth']['offers']['offer'][0]['price'] * 100;
 											
-											$price->save();
+											if($price->save()){
+												Log::debug('variant price created successfully');
+											}
+											else{
+												Log::debug('variant price failed to create');
+											}
 										}
 										else{
 											$create_v_failed++;
+											
+											Log::debug('variant '.$variant->sku.' failed to create');
 										}
 										
 										#Handle image
@@ -414,10 +471,10 @@ class Livex extends Model
 								die;
 							}
 							catch(ErrorException  $e){
-								Log::debug($e);
+								Log::warning($e);
 							}
 							catch(Exception $e){
-								Log::debug($e);
+								Log::warning($e);
 							}
 						} #end markets loop
 					} #end search response loop
@@ -557,7 +614,7 @@ class Livex extends Model
 
                 $image = file_get_contents($url, false, $context);
             } catch (\Exception $e) {
-                Log::debug("<error>Error downloading image {$url}: {$e->getMessage()}</error>");
+                Log::warning("Error downloading image {$url}: {$e->getMessage()}");
                 $image = null;
             }
 
@@ -586,7 +643,7 @@ class Livex extends Model
                             'source' => $url,
                         ]);
                     } catch (\Exception $e) {
-                        Log::debug("<error>Error processing image {$url}: {$e->getMessage()}</error>");
+                        Log::warning("Error processing image {$url}: {$e->getMessage()}");
                         $image = null;
                     }
                 }
