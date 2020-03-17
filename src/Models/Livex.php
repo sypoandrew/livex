@@ -15,6 +15,7 @@ use Aero\Catalog\Models\TagGroup;
 use Aero\Catalog\Models\Attribute;
 use Aero\Common\Models\Currency;
 use Aero\Common\Models\Image;
+use Aero\Cart\Models\Order;
 use Illuminate\Http\UploadedFile;
 use Spatie\LaravelImageOptimizer\Facades\ImageOptimizer;
 
@@ -113,16 +114,17 @@ class Livex extends Model
 			
 			$status_code = $response->getStatusCode(); // 200
 			$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
-			$res = $response->getBody();
 			
-			Log::debug('heartbeat');
+			Log::debug(__FUNCTION__);
 			#Log::debug($status_code);
-			#Log::debug($res);
 			
 			$data = json_decode($response->getBody(), true);
 			Log::debug($data);
 			if($data['status'] == 'OK'){
 				return true;
+			}
+			else{
+				Log::warning(json_encode($data));
 			}
 		}
 		catch(RequestException $e) {
@@ -141,35 +143,207 @@ class Livex extends Model
     {
 		
     }
+	
+	/**
+     * Get Liv-ex Order GUIDs from the order items
+     *
+     * @param int $order_id
+     * @return array
+     */
+    public function get_order_guids($order_id){
+		$order_guids = [];
+		
+		$tags = Tag::select("tags.name")
+		->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')
+		->join('tag_variant', 'tag_variant.tag_id', '=', 'tags.id')
+		->join('variants', 'variants.id', '=', 'tag_variant.variant_id')
+		->join('order_items', 'order_items.buyable_id', '=', 'variants.id')
+		->where("tag_groups.name->{$this->language}", 'Liv-Ex Order GUID')
+		->where('order_items.buyable_type', 'variant')
+		->where('order_items.order_id', $order_id)->get();
+		
+		foreach($tags as $tag){
+			$order_guids[] = $tag->name;
+		}
+	}
 
     /**
      * Order Status API – check status of offers in basket (prior to checkout payment)
      *
-     * @return void
+     * @param \Aero\Cart\Models\Order $order
+     * @return boolean
      */
-    public function order_status()
+    public function order_status(\Aero\Cart\Models\Order $order)
     {
+		$proceed_with_order = true;
 		
+        $url = $this->base_url . 'exchange/v1/orderStatus';
+        $headers = [
+			'CLIENT_KEY' => $this->get_client_key(),
+			'CLIENT_SECRET' => $this->get_client_secret(),
+			'ACCEPT' => 'application/json',
+			'CONTENT-TYPE' => 'application/json',
+		];
+		
+		#get the Liv-ex order GUIDs from the Aero order items
+		$order_guids = $this->get_order_guids($order->id);
+		#dd($order_guids);
+		#testing
+		$order_guids = [];
+		$order_guids[] = '5b3932f5-06bb-4f1e-b73f-589a7b3a2d51';
+		
+		if($order_guids){
+			$params = [
+				'orderGUID' => $order_guids,
+			];
+
+
+			$client = new Client();
+			#$response = $client->post($url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
+			$response = $client->post($url, ['headers' => $headers, 'json' => $params]);
+
+			$status_code = $response->getStatusCode(); // 200
+			$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+			
+			Log::debug(__FUNCTION__);
+			#Log::debug($status_code);
+			
+			
+			if($body = $response->getBody()){
+				$data = json_decode($response->getBody(), true);
+				#dd($data);
+				if($data['status'] == 'OK'){
+					dd($data);
+					foreach($data['orderStatus']['status'] as $order_status){
+						
+						################################
+						# TODO - may need further testing for correct checking of orders
+						################################
+						
+						#check if able to proceed with Aero order here...
+						if($order_status['orderStatus'] ==  'S'){
+							#offer has been suspended - stop user from progressing through checkout
+							$proceed_with_order = false;
+						}
+					}
+				}
+				else{
+					Log::warning(json_encode($data));
+				}
+			}
+		}
+		else{
+			#Aero order has no Liv-ex items - no need for API request and continue with order checkout process
+		}
+		
+		dd($proceed_with_order);
+		return $proceed_with_order;
     }
 
     /**
      * Orders API – check status of offers in basket (prior to checkout payment)
      *
+     * @param \Aero\Cart\Models\Order $order
      * @return void
      */
-    public function add_order()
+    public function add_order(\Aero\Cart\Models\Order $order)
     {
+		$url = $this->base_url . 'exchange/v4/orders';
+        $headers = [
+			'CLIENT_KEY' => $this->get_client_key(),
+			'CLIENT_SECRET' => $this->get_client_secret(),
+			'ACCEPT' => 'application/json',
+			'CONTENT-TYPE' => 'application/json',
+		];
 		
+		$orders = [];
+		
+		################################
+		# TODO - correctly handle Livex orders
+		################################
+		$orders[] = [
+			'contractType' => '', #sib/sep/x
+			'orderType' => 'O',
+			'orderStatus' => 'L',
+		];
+		
+		$params = $orders;
+
+
+		$client = new Client();
+		#$response = $client->post($url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
+		$response = $client->post($url, ['headers' => $headers, 'json' => $params]);
+
+		$status_code = $response->getStatusCode(); // 200
+		$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+		
+		Log::debug(__FUNCTION__);
+		#Log::debug($status_code);
+		
+		if($body = $response->getBody()){
+			$data = json_decode($response->getBody(), true);
+			#dd($data);
+			if($data['status'] == 'OK'){
+				foreach($data['orderStatus']['status'] as $order_status){
+					
+					#check if able to proceed with Aero order here...
+					if($order_status['orderStatus'] ==  'S'){
+						#offer has been suspended - stop user from progressing through checkout
+						$proceed_with_order = false;
+					}
+				}
+			}
+			else{
+				Log::warning(json_encode($data));
+			}
+		}
     }
 
     /**
      * Orders API – Check for failed bids and delete (after checkout payment)
      *
-     * @return void
+     * @param \Aero\Cart\Models\Order $order
+     * @return boolean
      */
-    public function cancel_order()
+    public function cancel_order(\Aero\Cart\Models\Order $order)
     {
+		if($order->additional('livex_guid')){
+			$url = $this->base_url . 'exchange/v4/orders';
+			$headers = [
+				'CLIENT_KEY' => $this->get_client_key(),
+				'CLIENT_SECRET' => $this->get_client_secret(),
+				'ACCEPT' => 'application/json',
+				'CONTENT-TYPE' => 'application/json',
+			];
+			
+			$params = [
+				'orderGUID' => $order->additional('livex_guid'),
+			];
+
+
+			$client = new Client();
+			#$response = $client->request('DELETE', $url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
+			$response = $client->request('DELETE', $url, ['headers' => $headers, 'json' => $params]);
+
+			$status_code = $response->getStatusCode(); // 200
+			$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+			
+			Log::debug(__FUNCTION__);
+			#Log::debug($status_code);
+			
+			if($body = $response->getBody()){
+				$data = json_decode($response->getBody(), true);
+				#dd($data);
+				if($data['status'] == 'OK'){
+					return true;
+				}
+				else{
+					Log::warning(json_encode($data));
+				}
+			}
+		}
 		
+		return false;
     }
 
     /**
@@ -204,11 +378,9 @@ class Livex extends Model
 
 		$status_code = $response->getStatusCode(); // 200
 		$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
-		$res = $response->getBody();
 		
 		Log::debug(__FUNCTION__);
 		#Log::debug($status_code);
-		#Log::debug($res);
 		
 		$groups = $this->get_tag_groups();
 		#Log::debug($groups);
@@ -224,15 +396,6 @@ class Livex extends Model
 		#dd($attr);
 		
 		$currency = Currency::where('code', 'GBP')->first();
-		
-		#test
-		#dd('test handle image');
-		#$p = Product::find(1577);
-		#$wine_type = 'still';
-		#$colour = 'red';
-		#$this->handlePlaceholderImage($p, $wine_type, $colour);
-		#dd('test handle image done');
-		
 		
 		if($body = $response->getBody()){
 			$data = json_decode($response->getBody(), true);
@@ -300,7 +463,7 @@ class Livex extends Model
 								if($p != null){
 									#already on system - just update the essentials
 									Log::debug('update the variant LX'.$sku);
-									dd('update the variant LX'.$sku);
+									#dd('update the variant LX'.$sku);
 									
 									if($dutyPaid){
 										$variant = Variant::where('product_id', $p->id)->where('sku', 'like', '%DP')->first();
@@ -313,10 +476,15 @@ class Livex extends Model
 									$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
 									if($variant->save()){
 										$updated++;
+										Log::debug('update variant LX'.$sku.' success');
+										#dd('update variant LX'.$sku.' success');
 									}
 									else{
 										$update_failed++;
+										Log::debug('update variant LX'.$sku.' failed');
+										#dd('update variant LX'.$sku.' failed');
 									}
+									#dd($p->id);
 								}
 								else{
 									#not currently on system - create it
@@ -473,8 +641,8 @@ class Livex extends Model
 								}
 								
 								#dd($p);
-								dd($p->id);
-								die;
+								#dd($p->id);
+								#die;
 							}
 							catch(ErrorException  $e){
 								Log::warning($e);
@@ -485,7 +653,10 @@ class Livex extends Model
 						} #end markets loop
 					} #end search response loop
 				} #end check for search response
-			} #end check for OK status
+			}
+			else{
+				Log::warning(json_encode($data));
+			}
 		}
     }
 
