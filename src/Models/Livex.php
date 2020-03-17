@@ -77,7 +77,7 @@ class Livex extends Model
      */
     protected function get_tag_groups()
     {
-		$groups = TagGroup::whereIn("name->{$this->language}", ['Bottle Size', 'Case Size', 'Colour', 'Country', 'Region', 'Sub Region', 'Vintage', 'Wine Type', 'Burgundy Cru'])->get();
+		$groups = TagGroup::whereIn("name->{$this->language}", ['Bottle Size', 'Case Size', 'Colour', 'Country', 'Region', 'Sub Region', 'Vintage', 'Wine Type', 'Burgundy Cru', 'Liv-Ex Order GUID'])->get();
 		
 		$arr = [];
 		foreach($groups as $g){
@@ -439,7 +439,7 @@ class Livex extends Model
 												'variant_id' => $variant->id,
 												'product_tax_group_id' => $variant->product_tax_group_id,
 												'product_id' => $p->id,
-												'quantity' => $variant->stock_level,
+												'quantity' => 1,
 												'currency_code' => $currency->code,
 											]);
 											
@@ -451,6 +451,12 @@ class Livex extends Model
 											else{
 												Log::debug('variant price failed to create');
 											}
+											
+											$order_guid = $market['depth']['offers']['offer'][0]['orderGUID'];
+											
+											$tag_group = $groups['Liv-Ex Order GUID'];
+											$tag = $this->findOrCreateTag($order_guid, $tag_group);
+											$variant->tags()->syncWithoutDetaching($tag);
 										}
 										else{
 											$create_v_failed++;
