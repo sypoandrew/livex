@@ -44,7 +44,7 @@ class ServiceProvider extends ModuleServiceProvider
 			Log::debug('checking payment methods');
 			#dd($method->driver);
 			
-			if($cart->subtotal() < settings('max_subtotal_in_basket')){
+			if($cart->subtotal() < setting('Livex.max_subtotal_in_basket')){
 				return true;
 			}
 			/* 

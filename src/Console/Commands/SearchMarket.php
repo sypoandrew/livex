@@ -4,21 +4,21 @@ namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
 
-class ActiveMarket extends Command
+class SearchMarket extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'sypo:livex:run';
+    protected $signature = 'livex:import';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Run the Liv-ex API to check active market';
+    protected $description = 'Run the Liv-ex API to search market for offers';
 
     /**
      * Create a new command instance.
@@ -38,6 +38,6 @@ class ActiveMarket extends Command
     public function handle()
     {
         $l = new \Sypo\Livex\Models\Livex;
-		$l->active_market();
+		$l->search_market();
     }
 }

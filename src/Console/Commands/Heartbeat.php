@@ -11,7 +11,7 @@ class Heartbeat extends Command
      *
      * @var string
      */
-    protected $signature = 'sypo:livex:heartbeat';
+    protected $signature = 'livex:heartbeat';
 
     /**
      * The console command description.
