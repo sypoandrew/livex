@@ -46,14 +46,15 @@ class ServiceProvider extends ModuleServiceProvider
 			#Log::debug(setting('Livex.max_subtotal_in_basket'));
 			#Log::debug($cart->subtotal()->incValue);
 			
-			#temp - until realex is available
-			return true;
 			
 			if($method->driver == 'cash'){
-				if($cart->subtotal()->incValue > (setting('Livex.max_subtotal_in_basket') * 100)){
+				/* if($cart->subtotal()->incValue > (setting('Livex.max_subtotal_in_basket') * 100)){
 					return true;
 				}
-				return false;
+				return false; */
+				
+				#always allow bank transfer option
+				return true;
 			}
 			elseif($method->driver == 'realex'){
 				if($cart->subtotal()->incValue < (setting('Livex.max_subtotal_in_basket') * 100)){
