@@ -371,7 +371,7 @@ class Livex extends Model
 			#'lwin' => [18], #LWIN11/LWIN16/LWIN18
 			'currency' => 'gbp',
 			#'minPrice' => setting('Livex.price_threshold'),
-			#'priceType' => 'offer', #ignore bids
+			'priceType' => ['offer'], #ignore bids
 			'dutyPaid' => true,
 			#'condition' => '',
 			#'isCompetitive' => true,
@@ -407,6 +407,7 @@ class Livex extends Model
 			$data = json_decode($response->getBody(), true);
 			
 			Log::debug($data);
+			dd($data);
 			#Log::debug($data['pageInfo']);
 			if($data['status'] == 'OK'){
 				$total = $data['pageInfo']['totalResults'];
