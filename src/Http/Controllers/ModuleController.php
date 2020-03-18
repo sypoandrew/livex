@@ -22,7 +22,8 @@ class ModuleController extends Controller
         $l = new \Sypo\Livex\Models\Livex;
 		#$l->heartbeat();
 		#$l->search_market();
-		$l->order_status(2);
+		$l->order_status(\Aero\Cart\Models\Order::find(2));
+		#$l->basket_limit_livex_items_reached(\Aero\Cart\Cart::class);
 		
         return view('livex::livex', $this->data);
     }

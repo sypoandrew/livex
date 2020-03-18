@@ -133,27 +133,17 @@ class Livex extends Model
 		
 		return false;
     }
-
-    /**
-     * Calculate total value of items in basket of Livex items to prevent CC option in checkout
-     *
-     * @return boolean
-     */
-    public function basket_limit_livex_items_reached()
-    {
-		
-    }
 	
 	/**
-     * Get Liv-ex Order GUIDs from the order items
+     * Get Liv-ex Order GUIDs and line info from the order items
      *
      * @param int $order_id
      * @return array
      */
-    public function get_order_guids($order_id){
+    public function get_order_details($order_id){
 		$order_guids = [];
 		
-		$tags = Tag::select("tags.name")
+		$dets = Tag::select("tags.name", "order_items.sku", "order_items.quantity")
 		->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')
 		->join('tag_variant', 'tag_variant.tag_id', '=', 'tags.id')
 		->join('variants', 'variants.id', '=', 'tag_variant.variant_id')
@@ -162,9 +152,9 @@ class Livex extends Model
 		->where('order_items.buyable_type', 'variant')
 		->where('order_items.order_id', $order_id)->get();
 		
-		foreach($tags as $tag){
-			$order_guids[] = $tag->name;
-		}
+		
+		
+		return $dets;
 	}
 
     /**
@@ -186,11 +176,20 @@ class Livex extends Model
 		];
 		
 		#get the Liv-ex order GUIDs from the Aero order items
-		$order_guids = $this->get_order_guids($order->id);
+		$order_details = $this->get_order_details($order->id);
+		$order_guids = [];
+		foreach($order_details as $det){
+			$order_guids[] = $det->name;
+		}
+		$item_info = [];
+		foreach($order_details as $det){
+			$item_info[$det->name] = ['sku' => $det->sku, 'qty' => $det->quantity];
+		}
+		#dd($item_info);
 		#dd($order_guids);
 		#testing
-		$order_guids = [];
-		$order_guids[] = '5b3932f5-06bb-4f1e-b73f-589a7b3a2d51';
+		#$order_guids = [];
+		#$order_guids[] = '5b3932f5-06bb-4f1e-b73f-589a7b3a2d51';
 		
 		if($order_guids){
 			$params = [
@@ -212,23 +211,30 @@ class Livex extends Model
 			if($body = $response->getBody()){
 				$data = json_decode($response->getBody(), true);
 				#dd($data);
+				Log::debug($data);
 				if($data['status'] == 'OK'){
-					dd($data);
+					#dd($data);
 					foreach($data['orderStatus']['status'] as $order_status){
 						
-						################################
-						# TODO - may need further testing for correct checking of orders
-						################################
-						
 						#check if able to proceed with Aero order here...
-						if($order_status['orderStatus'] ==  'S'){
-							#offer has been suspended - stop user from progressing through checkout
+						if($order_status['orderStatus'] ==  'S' or $order_status['orderStatus'] ==  'T'){
+							#offer has been suspended or Traded - stop user from progressing through checkout
+							$proceed_with_order = false;
+						}
+						
+						if($order_status['quantity'] < $item_info[$order_status['orderGUID']]['quantity']){
+							#offer has less qty available than user has in basket - stop user from progressing through checkout
 							$proceed_with_order = false;
 						}
 					}
 				}
 				else{
 					Log::warning(json_encode($data));
+					if($data['error']['code'] == 'V056'){
+						#GUID is not available or does not exist - removed from Liv-ex so prevent customer from proceeding
+						$proceed_with_order = false;
+					}
+					
 				}
 			}
 		}
@@ -236,12 +242,12 @@ class Livex extends Model
 			#Aero order has no Liv-ex items - no need for API request and continue with order checkout process
 		}
 		
-		dd($proceed_with_order);
+		#dd($proceed_with_order);
 		return $proceed_with_order;
     }
 
     /**
-     * Orders API – check status of offers in basket (prior to checkout payment)
+     * Orders API – send order to Liv-ex (after checkout payment)
      *
      * @param \Aero\Cart\Models\Order $order
      * @return void
@@ -300,7 +306,7 @@ class Livex extends Model
     }
 
     /**
-     * Orders API – Check for failed bids and delete (after checkout payment)
+     * Orders API – Delete order on Liv-ex if bid fails (after checkout payment)
      *
      * @param \Aero\Cart\Models\Order $order
      * @return boolean
@@ -658,6 +664,27 @@ class Livex extends Model
 				Log::warning(json_encode($data));
 			}
 		}
+    }
+
+    /**
+     * Calculate total value of items in basket of Livex items to prevent CC option in checkout
+     *
+     * @param \Aero\Cart\Cart $group
+     * @return boolean
+     */
+    public function basket_items_limit_reached(\Aero\Cart\Cart $cart)
+    {
+		dd($cart->items());
+		$items = $cart->items();
+		if(!$items->isEmpty()){
+			foreach($items as $item){
+				if(substr($item->sku, 0, 2) == 'LX'){
+					$livex_total += $item->subtotal();
+				}
+			}
+		}
+		
+		#if($livex_total > setting('')
     }
 
     /**

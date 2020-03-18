@@ -6,7 +6,9 @@ use Aero\Admin\AdminModule;
 use Aero\Common\Providers\ModuleServiceProvider;
 use Aero\Common\Facades\Settings;
 use Aero\Common\Settings\SettingGroup;
+use Aero\Payment\Models\PaymentMethod;
 use Spatie\Valuestore\Valuestore;
+use Illuminate\Support\Facades\Log;
 
 class ServiceProvider extends ModuleServiceProvider
 {
@@ -24,16 +26,43 @@ class ServiceProvider extends ModuleServiceProvider
         Settings::group('Livex', function (SettingGroup $group) {
             $group->boolean('enabled')->default(true);
             $group->integer('stock_threshold')->default(0);
-            $group->integer('price_threshold')->default(500);
+            $group->integer('price_threshold')->default(250);
             $group->integer('margin_markup')->default(10);
+            $group->integer('max_subtotal_in_basket')->default(3000);
         });
 		
 		$valuestore = Valuestore::make(storage_path('app/livex.json'));
 		$valuestore->put('enabled', '1');
 		$valuestore->put('stock_threshold', '0');
-		$valuestore->put('price_threshold', '500');
+		$valuestore->put('price_threshold', '250');
 		$valuestore->put('margin_markup', '10');
+		$valuestore->put('max_subtotal_in_basket', '3000');
 		
 		$this->loadViewsFrom(__DIR__ . '/../../resources/views/', 'livex');
+		
+		PaymentMethod::setCartValidator(function ($method, $cart) {
+			Log::debug('checking payment methods');
+			#dd($method->driver);
+			
+			if($cart->subtotal() < settings('max_subtotal_in_basket')){
+				return true;
+			}
+			/* 
+			#checking on Liv-Ex items only...
+			$livex_subtotal = 0;
+			foreach($cart->items() as $item){
+				#dd($item);
+				Log::debug($item->sku);
+				if(substr($item->sku, 0, 2) == 'LX'){
+					$livex_subtotal += $item->subtotal()->incValue;
+				}
+			}
+			
+			if($livex_subtotal < settings('max_subtotal_in_basket')){
+				return true;
+			}
+			dd($livex_subtotal);
+			 */
+		});
     }
 }
