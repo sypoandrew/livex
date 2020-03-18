@@ -41,12 +41,30 @@ class ServiceProvider extends ModuleServiceProvider
 		$this->loadViewsFrom(__DIR__ . '/../../resources/views/', 'livex');
 		
 		PaymentMethod::setCartValidator(function ($method, $cart) {
-			Log::debug('checking payment methods');
-			#dd($method->driver);
+			#Log::debug('checking payment methods');
+			#Log::debug($method->driver);
+			#Log::debug(setting('Livex.max_subtotal_in_basket'));
+			#Log::debug($cart->subtotal()->incValue);
 			
-			if($cart->subtotal() < setting('Livex.max_subtotal_in_basket')){
-				return true;
+			#temp - until realex is available
+			return true;
+			
+			if($method->driver == 'cash'){
+				if($cart->subtotal()->incValue > (setting('Livex.max_subtotal_in_basket') * 100)){
+					return true;
+				}
+				return false;
 			}
+			elseif($method->driver == 'realex'){
+				if($cart->subtotal()->incValue < (setting('Livex.max_subtotal_in_basket') * 100)){
+					return true;
+				}
+				return false;
+			}
+			
+			#default handling - shouldn't reach here
+			return true;
+			
 			/* 
 			#checking on Liv-Ex items only...
 			$livex_subtotal = 0;
@@ -61,7 +79,7 @@ class ServiceProvider extends ModuleServiceProvider
 			if($livex_subtotal < settings('max_subtotal_in_basket')){
 				return true;
 			}
-			dd($livex_subtotal);
+			#dd($livex_subtotal);
 			 */
 		});
     }
