@@ -372,7 +372,7 @@ class Livex extends Model
 			'currency' => 'gbp',
 			#'minPrice' => setting('Livex.price_threshold'),
 			'priceType' => ['offer'], #ignore bids
-			'dutyPaid' => true,
+			'dutyPaid' => false,
 			#'condition' => '',
 			#'isCompetitive' => true,
 		];
@@ -406,8 +406,8 @@ class Livex extends Model
 		if($body = $response->getBody()){
 			$data = json_decode($response->getBody(), true);
 			
-			Log::debug($data);
-			dd($data);
+			#Log::debug($data);
+			#dd($data);
 			#Log::debug($data['pageInfo']);
 			if($data['status'] == 'OK'){
 				$total = $data['pageInfo']['totalResults'];
@@ -419,11 +419,11 @@ class Livex extends Model
 				$updated = 0;
 				$update_failed = 0;
 				$error = 0;
-				$vinquinnStockItem = 0;
 				
 				if(isset($data['searchResponse'])){
 					foreach($data['searchResponse'] as $item){
-						Log::debug($item);
+						#Log::debug($item);
+						#Log::debug(json_encode($item));
 						
 						$i++;
 						
@@ -450,6 +450,8 @@ class Livex extends Model
 							if(!count($market['depth']['offers']['offer'])){
 								#no active offers - skip this item
 								#dd($item);
+								$error++;
+								Log::debug("ignore $sku no offers");
 								continue;
 							}
 							$sku = $market['lwin']; #LWIN18
@@ -461,15 +463,27 @@ class Livex extends Model
 							try{
 								
 								if($created_p >= 1){
-									die;
+									#die;
+									break;
 								}
 								
+								if($market['depth']['offers']['offer'][0]['price'] < 250){
+									$error++;
+									Log::debug("ignore $sku due to price {$market['depth']['offers']['offer'][0]['price']}");
+									continue;
+								}
 								
+								if($minimumQty > 1){
+									$error++;
+									Log::debug("ignore $sku due to minimumQty {$minimumQty}");
+									continue;
+								}
 								
 								$p = Product::where('model', 'LX'.$sku)->first();
 								if($p != null){
 									#already on system - just update the essentials
-									Log::debug('update the variant LX'.$sku);
+									Log::debug('update the variant LX'.$sku.' duty paid '.(int)$dutyPaid);
+									#Log::debug($dutyPaid);
 									#dd('update the variant LX'.$sku);
 									
 									if($dutyPaid){
@@ -479,19 +493,24 @@ class Livex extends Model
 										$variant = Variant::where('product_id', $p->id)->where('sku', 'like', '%IB')->first();
 									}
 									
-									$variant->stock_level = $market['depth']['offers']['offer'][0]['quantity'];
-									$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
-									if($variant->save()){
-										$updated++;
-										Log::debug('update variant LX'.$sku.' success');
-										#dd('update variant LX'.$sku.' success');
+									if($variant != null){
+										$variant->stock_level = $market['depth']['offers']['offer'][0]['quantity'];
+										$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
+										if($variant->save()){
+											$updated++;
+											Log::debug('update variant LX'.$sku.' success');
+											#dd('update variant LX'.$sku.' success');
+										}
+										else{
+											$update_failed++;
+											Log::debug('update variant LX'.$sku.' failed');
+											#dd('update variant LX'.$sku.' failed');
+										}
+										#dd($p->id);
 									}
 									else{
-										$update_failed++;
-										Log::debug('update variant LX'.$sku.' failed');
-										#dd('update variant LX'.$sku.' failed');
+										Log::debug('variant not found');
 									}
-									#dd($p->id);
 								}
 								else{
 									#not currently on system - create it
@@ -618,7 +637,17 @@ class Livex extends Model
 												'currency_code' => $currency->code,
 											]);
 											
-											$price->value = $market['depth']['offers']['offer'][0]['price'] * 100;
+											$item_price = $market['depth']['offers']['offer'][0]['price'];
+											$item_price_w_markup = $item_price;
+											if($item_price >= 500){
+												$item_price_w_markup = $item_price * (1 + setting('Livex.margin_markup'));
+											}
+											elseif($item_price >= 250 and $item_price < 500){
+												$item_price_w_markup = $item_price * (1 + setting('Livex.margin_markup')) + 25;
+											}
+											Log::debug($item_price);
+											Log::debug($item_price_w_markup);
+											$price->value = $item_price_w_markup * 100;
 											
 											if($price->save()){
 												Log::debug('variant price created successfully');
@@ -649,7 +678,6 @@ class Livex extends Model
 								
 								#dd($p);
 								#dd($p->id);
-								#die;
 							}
 							catch(ErrorException  $e){
 								Log::warning($e);
@@ -659,6 +687,11 @@ class Livex extends Model
 							}
 						} #end markets loop
 					} #end search response loop
+					
+					
+					Log::debug("Search API complete");
+					Log::debug("created products $created_p/$total | created variants $created_v/$total | failed products $create_p_failed/$total | failed variants $create_v_failed/$total | updated $updated/$total | update failed $update_failed/$total | ignored $error/$total");
+					
 				} #end check for search response
 			}
 			else{
