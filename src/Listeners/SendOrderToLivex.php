@@ -14,13 +14,25 @@ class SendOrderToLivex implements ShouldQueue
     public function handle(OrderSuccessful $event)
     {
         $order = $event->order;
+		#dd($order->subtotalPrice->incValue);
+		#dd(setting('Livex.max_subtotal_in_basket'));
+		
+			$livex = new Livex;
+			$livexId = $livex->add_order($order);
+			
         #only send to Livex if order amount is less than threshold
-		if($order->subtotal() < setting('Livex.max_subtotal_in_basket')){
+		if($order->subtotalPrice->incValue < (setting('Livex.max_subtotal_in_basket') * 100)){
+			dd('send to livex');
+			
 			#handle Liv-ex API call
 			$livex = new Livex;
 			$livexId = $livex->add_order($order);
 			
 			$order->additional('livex_guid', $livexId);
+		}
+		else{
+			
+			dd('dont send to livex due to order total');
 		}
     }
 }

@@ -2,6 +2,8 @@
 
 namespace Sypo\Livex\Providers;
 
+use Sypo\Livex\Listeners\SendOrderToLivex;
+use Aero\Cart\Events\OrderSuccessful;
 use Aero\Admin\AdminModule;
 use Aero\Common\Providers\ModuleServiceProvider;
 use Aero\Common\Facades\Settings;
@@ -12,6 +14,17 @@ use Illuminate\Support\Facades\Log;
 
 class ServiceProvider extends ModuleServiceProvider
 {
+    protected $listen = [
+        OrderSuccessful::class => [
+            SendOrderToLivex::class,
+        ],
+    ];
+
+    protected $commands = [
+        'Sypo\Livex\Console\Commands\Heartbeat',
+        'Sypo\Livex\Console\Commands\SearchMarket',
+    ];
+
     public function register(): void 
     {
         AdminModule::create('Livex')
@@ -19,10 +32,14 @@ class ServiceProvider extends ModuleServiceProvider
             ->summary('Livex API integration settings for Aero Commerce')
             ->routes(__DIR__ .'/../../routes/admin.php')
             ->route('admin.modules.livex');
+        
+        $this->commands($this->commands);
     }
 	
     public function boot(): void 
     {
+        parent::boot();
+		
         Settings::group('Livex', function (SettingGroup $group) {
             $group->boolean('enabled')->default(true);
             $group->integer('stock_threshold')->default(0);

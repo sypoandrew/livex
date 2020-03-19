@@ -163,7 +163,7 @@ class Livex extends Model
      * @param \Aero\Cart\Models\Order $order
      * @return boolean
      */
-    public function order_status(\Aero\Cart\Models\Order $order)
+    public function order_status(\Aero\Cart\Models\Order $order, $return_result = false)
     {
 		$proceed_with_order = true;
 		
@@ -214,6 +214,10 @@ class Livex extends Model
 				Log::debug($data);
 				if($data['status'] == 'OK'){
 					#dd($data);
+					if($return_result){
+						return $data['orderStatus']['status'];
+					}
+					
 					foreach($data['orderStatus']['status'] as $order_status){
 						
 						#check if able to proceed with Aero order here...
@@ -264,44 +268,81 @@ class Livex extends Model
 		
 		$orders = [];
 		
-		################################
-		# TODO - correctly handle Livex orders
-		################################
-		$orders[] = [
-			'contractType' => '', #sib/sep/x
-			'orderType' => 'O',
-			'orderStatus' => 'L',
-		];
-		
-		$params = $orders;
-
-
-		$client = new Client();
-		#$response = $client->post($url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
-		$response = $client->post($url, ['headers' => $headers, 'json' => $params]);
-
-		$status_code = $response->getStatusCode(); // 200
-		$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
-		
-		Log::debug(__FUNCTION__);
-		#Log::debug($status_code);
-		
-		if($body = $response->getBody()){
-			$data = json_decode($response->getBody(), true);
-			#dd($data);
-			if($data['status'] == 'OK'){
-				foreach($data['orderStatus']['status'] as $order_status){
+		#get the item status from Liv-ex - this is in nice format to then handle the params to post the order
+		$dets = $this->order_status($order, true);
+		#dd($dets);
+		if(is_array($dets) and count($dets) > 0){
+			
+			################################
+			# TODO - correctly handle Livex orders
+			################################
+			
+			$orderItems = $order->items()->get();
+			#dd($orderItems);
+			
+			foreach($dets as $iteminfo){
+				
+				foreach($orderItems as $item){
 					
-					#check if able to proceed with Aero order here...
-					if($order_status['orderStatus'] ==  'S'){
-						#offer has been suspended - stop user from progressing through checkout
-						$proceed_with_order = false;
+					$lwin18 = $iteminfo['lwin'] . $iteminfo['vintage'] . $iteminfo['bottleInCase'] . $iteminfo['bottleSize'];
+					
+					if(substr($item->sku, 0, -2) == 'LX'.$lwin18){
+						
+						$dutyPaid = (substr($item->sku, 0, -2) == 'DP') ? true : false;
+						$enPremeur = (substr($item->sku, 0, -2) == 'EP') ? true : false;
+						
+						#$contractType = 
+						
+						#dd($item);
+						$orders[] = [
+							'contractType' => $iteminfo['contractType'], #sib/sep/x
+							'orderType' => $iteminfo['orderType'],
+							'orderStatus' => $iteminfo['orderStatus'],
+							'lwin' => $lwin18,
+							'currency' => 'GBP',
+							'price' => $item->price,
+							'quantity' => $item->quantity,
+							'merchantRef' => $order->id,
+						];
 					}
+					
 				}
 			}
-			else{
-				Log::warning(json_encode($data));
+			dd($orders);
+			
+			$params = $orders;
+
+
+			$client = new Client();
+			#$response = $client->post($url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
+			$response = $client->post($url, ['headers' => $headers, 'json' => $params]);
+
+			$status_code = $response->getStatusCode(); // 200
+			$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+			
+			Log::debug(__FUNCTION__);
+			#Log::debug($status_code);
+			
+			if($body = $response->getBody()){
+				$data = json_decode($response->getBody(), true);
+				#dd($data);
+				if($data['status'] == 'OK'){
+					foreach($data['orderStatus']['status'] as $order_status){
+						
+						#check if able to proceed with Aero order here...
+						if($order_status['orderStatus'] ==  'S'){
+							#offer has been suspended - stop user from progressing through checkout
+							$proceed_with_order = false;
+						}
+					}
+				}
+				else{
+					Log::warning(json_encode($data));
+				}
 			}
+		}
+		else{
+			Log::warning('unable to post order '.$order->id.' to Livex');
 		}
     }
 
