@@ -41,7 +41,7 @@ class ServiceProvider extends ModuleServiceProvider
 		$this->loadViewsFrom(__DIR__ . '/../../resources/views/', 'livex');
 		
 		PaymentMethod::setCartValidator(function ($method, $cart) {
-			#Log::debug('checking payment methods');
+			Log::debug('checking payment methods');
 			#Log::debug($method->driver);
 			#Log::debug(setting('Livex.max_subtotal_in_basket'));
 			#Log::debug($cart->subtotal()->incValue);
