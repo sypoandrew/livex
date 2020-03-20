@@ -145,14 +145,13 @@ class Livex extends Model
 		
 		$dets = Tag::select("tags.name", "order_items.sku", "order_items.quantity")
 		->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')
-		->join('tag_variant', 'tag_variant.tag_id', '=', 'tags.id')
-		->join('variants', 'variants.id', '=', 'tag_variant.variant_id')
+		->join('product_tag', 'product_tag.tag_id', '=', 'tags.id')
+		->join('products', 'products.id', '=', 'product_tag.product_id')
+		->join('variants', 'variants.product_id', '=', 'products.id')
 		->join('order_items', 'order_items.buyable_id', '=', 'variants.id')
 		->where("tag_groups.name->{$this->language}", 'Liv-Ex Order GUID')
 		->where('order_items.buyable_type', 'variant')
 		->where('order_items.order_id', $order_id)->get();
-		
-		
 		
 		return $dets;
 	}
@@ -177,19 +176,14 @@ class Livex extends Model
 		
 		#get the Liv-ex order GUIDs from the Aero order items
 		$order_details = $this->get_order_details($order->id);
-		$order_guids = [];
-		foreach($order_details as $det){
-			$order_guids[] = $det->name;
-		}
+		#dd($order_details);
 		$item_info = [];
 		foreach($order_details as $det){
 			$item_info[$det->name] = ['sku' => $det->sku, 'qty' => $det->quantity];
 		}
 		#dd($item_info);
+		$order_guids = array_keys($item_info);
 		#dd($order_guids);
-		#testing
-		#$order_guids = [];
-		#$order_guids[] = '5b3932f5-06bb-4f1e-b73f-589a7b3a2d51';
 		
 		if($order_guids){
 			$params = [
@@ -281,37 +275,30 @@ class Livex extends Model
 			#dd($orderItems);
 			
 			foreach($dets as $iteminfo){
-				
 				foreach($orderItems as $item){
-					
 					$lwin18 = $iteminfo['lwin'] . $iteminfo['vintage'] . $iteminfo['bottleInCase'] . $iteminfo['bottleSize'];
-					
 					if(substr($item->sku, 0, -2) == 'LX'.$lwin18){
-						
 						$dutyPaid = (substr($item->sku, 0, -2) == 'DP') ? true : false;
 						$enPremeur = (substr($item->sku, 0, -2) == 'EP') ? true : false;
-						
-						#$contractType = 
 						
 						#dd($item);
 						$orders[] = [
 							'contractType' => $iteminfo['contractType'], #sib/sep/x
 							'orderType' => $iteminfo['orderType'],
+							#'orderType' => 'B', #bid
 							'orderStatus' => $iteminfo['orderStatus'],
 							'lwin' => $lwin18,
 							'currency' => 'GBP',
-							'price' => $item->price,
+							'price' => $iteminfo['price'],
 							'quantity' => $item->quantity,
 							'merchantRef' => $order->id,
 						];
 					}
-					
 				}
 			}
-			dd($orders);
-			
+			Log::debug($orders);
+			#dd($orders);
 			$params = $orders;
-
 
 			$client = new Client();
 			#$response = $client->post($url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
@@ -325,7 +312,7 @@ class Livex extends Model
 			
 			if($body = $response->getBody()){
 				$data = json_decode($response->getBody(), true);
-				#dd($data);
+				dd($data);
 				if($data['status'] == 'OK'){
 					foreach($data['orderStatus']['status'] as $order_status){
 						
@@ -447,7 +434,7 @@ class Livex extends Model
 		if($body = $response->getBody()){
 			$data = json_decode($response->getBody(), true);
 			
-			#Log::debug($data);
+			Log::debug($data);
 			#dd($data);
 			#Log::debug($data['pageInfo']);
 			if($data['status'] == 'OK'){
@@ -527,30 +514,71 @@ class Livex extends Model
 									#Log::debug($dutyPaid);
 									#dd('update the variant LX'.$sku);
 									
-									if($dutyPaid){
-										$variant = Variant::where('product_id', $p->id)->where('sku', 'like', '%DP')->first();
-									}
-									else{
-										$variant = Variant::where('product_id', $p->id)->where('sku', 'like', '%IB')->first();
-									}
-									
-									if($variant != null){
-										$variant->stock_level = $market['depth']['offers']['offer'][0]['quantity'];
-										$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
-										if($variant->save()){
-											$updated++;
-											Log::debug('update variant LX'.$sku.' success');
-											#dd('update variant LX'.$sku.' success');
+									#check for orderGUID tag
+									$order_guid = $market['depth']['offers']['offer'][0]['orderGUID'];
+									$tag_group = $groups['Liv-Ex Order GUID'];
+									$guid_tag = $p->tags()->where('tag_group_id', $tag_group->id)->first();
+									if($guid_tag != null){
+										#found tag - check if it's the same GUID
+										
+										#dd("found tag - check if it's the same GUID for $sku");
+										#dd("{$order_guid} == {$guid_tag->name}");
+										
+										if($order_guid == $guid_tag->name){
+											#it's the same - no action required
+											#dd("it's the same - no action required");
 										}
 										else{
-											$update_failed++;
-											Log::debug('update variant LX'.$sku.' failed');
-											#dd('update variant LX'.$sku.' failed');
+											#the current guid may be an older offer - let's update it
+											#dd('current guid found but different - update guid to '.$order_guid.' for sku '.$sku);
+											
+											#delete the current one(s)
+											$p->tags()->where('tag_group_id', $tag_group->id)->delete();
+											
+											#add the new guid
+											$tag = $this->findOrCreateTag($order_guid, $tag_group);
+											$p->tags()->syncWithoutDetaching($tag);
 										}
-										#dd($p->id);
 									}
 									else{
-										Log::debug('variant not found');
+										#no order guid tag - let's add it (this might be an old item that has come back into stock)
+										#dd('no guid found - add guid '.$order_guid.' for sku '.$sku);
+										
+										$tag = $this->findOrCreateTag($order_guid, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
+									}
+									
+									#dd($p->id . ' - ' . $order_guid);
+									
+									
+									$minimumQty = ($minimumQty) ? $minimumQty : 0;
+									$p->variants()->update(['stock_level' => $market['depth']['offers']['offer'][0]['quantity'], 'minimum_quantity' => $minimumQty]);
+									$updated++;
+									
+									$in_bond_item = $p->variants()->where('sku', $p->model.'IB')->first();
+									if($in_bond_item != null){
+										
+										$price = $in_bond_item->prices()->where('quantity', 1)->first();
+										if($price != null){
+											$item_price = $market['depth']['offers']['offer'][0]['price'];
+											$item_price_w_markup = $this->calculate_item_price($item_price);
+											
+											#dd("{$item_price} {$item_price_w_markup}");
+											#dd("{$p->id} {$in_bond_item->sku} current {$price->value} new price {$item_price_w_markup}");
+											#dd($price->value);
+											#dd($item_price_w_markup);
+											#Log::debug("{$p->id} {$in_bond_item->sku} current {$price->value} new price {$item_price_w_markup}");
+											#update the price if different to current
+											#dd([$item_price_w_markup, $price->value]);
+											#Log::debug([$item_price_w_markup, $price->value]);
+											
+											#only update the price if we need to
+											if($item_price_w_markup != $price->value){
+												#dd([$item_price_w_markup, $price->value]);
+												$price->update(['value' => $item_price_w_markup]);
+												#Log::debug("{$p->id} {$in_bond_item->sku} variant price updated successfully new price {$item_price_w_markup}");
+											}
+										}
 									}
 								}
 								else{
@@ -558,7 +586,7 @@ class Livex extends Model
 									Log::debug('create LX'.$sku);
 									#dd('create LX'.$sku);
 									
-									$case_size = $market['packSize'];
+									$case_size = (int) $market['packSize'];
 									$bottle_size = $market['bottleSize']; #data in zero-padded millilitres e.g. 00750
 									$bottle_size = self::format_bottle_size($bottle_size);
 									Log::debug($bottle_size);
@@ -567,8 +595,6 @@ class Livex extends Model
 									$p = new Product;
 									$p->model = 'LX'.$sku;
 									$p->name = $name;
-									#$p->summary = ['en' => $name];
-									#$p->description = ['en' => $name];
 									$p->summary = $name;
 									$p->description = $name;
 									$p->active = false; #initially hide - to be vetted prior to listing on website
@@ -643,6 +669,13 @@ class Livex extends Model
 											$p->tags()->syncWithoutDetaching($tag);
 										}
 										
+										
+										$order_guid = $market['depth']['offers']['offer'][0]['orderGUID'];
+										
+										$tag_group = $groups['Liv-Ex Order GUID'];
+										$tag = $this->findOrCreateTag($order_guid, $tag_group);
+										$p->tags()->syncWithoutDetaching($tag);
+										
 										#create the in-bond variant
 										$variant = new Variant;
 										$variant->product_id = $p->id;
@@ -679,16 +712,10 @@ class Livex extends Model
 											]);
 											
 											$item_price = $market['depth']['offers']['offer'][0]['price'];
-											$item_price_w_markup = $item_price;
-											if($item_price >= 500){
-												$item_price_w_markup = $item_price * (1 + setting('Livex.margin_markup'));
-											}
-											elseif($item_price >= 250 and $item_price < 500){
-												$item_price_w_markup = $item_price * (1 + setting('Livex.margin_markup')) + 25;
-											}
+											$item_price_w_markup = $this->calculate_item_price($item_price);
 											Log::debug($item_price);
 											Log::debug($item_price_w_markup);
-											$price->value = $item_price_w_markup * 100;
+											$price->value = $item_price_w_markup;
 											
 											if($price->save()){
 												Log::debug('variant price created successfully');
@@ -696,12 +723,6 @@ class Livex extends Model
 											else{
 												Log::debug('variant price failed to create');
 											}
-											
-											$order_guid = $market['depth']['offers']['offer'][0]['orderGUID'];
-											
-											$tag_group = $groups['Liv-Ex Order GUID'];
-											$tag = $this->findOrCreateTag($order_guid, $tag_group);
-											$variant->tags()->syncWithoutDetaching($tag);
 										}
 										else{
 											$create_v_failed++;
@@ -760,6 +781,24 @@ class Livex extends Model
 		}
 		
 		#if($livex_total > setting('')
+    }
+
+    /**
+     * Calculate item price with added markup
+     *
+     * @param float $item_price
+     * @return int
+     */
+    public function calculate_item_price($item_price)
+    {
+		$item_price_w_markup = (float) $item_price;
+		if($item_price >= 500){
+			$item_price_w_markup = $item_price * (1 + (setting('Livex.margin_markup') / 100));
+		}
+		elseif($item_price >= 250 and $item_price < 500){
+			$item_price_w_markup = $item_price * (1 + (setting('Livex.margin_markup') / 100)) + 25;
+		}
+		return $item_price_w_markup * 100; #Aero stores price as int
     }
 
     /**
