@@ -248,7 +248,7 @@ class Livex extends Model
      * Orders API – send order to Liv-ex (after checkout payment)
      *
      * @param \Aero\Cart\Models\Order $order
-     * @return void
+     * @return mixed
      */
     public function add_order(\Aero\Cart\Models\Order $order)
     {
@@ -284,12 +284,13 @@ class Livex extends Model
 						#dd($item);
 						$orders[] = [
 							'contractType' => $iteminfo['contractType'], #sib/sep/x
-							'orderType' => $iteminfo['orderType'],
-							#'orderType' => 'B', #bid
+							#'orderType' => $iteminfo['orderType'],
+							'orderType' => 'b', #bid
 							'orderStatus' => $iteminfo['orderStatus'],
 							'lwin' => $lwin18,
+							'vintage' => $iteminfo['vintage'],
 							'currency' => 'GBP',
-							'price' => $iteminfo['price'],
+							'price' => (int) $iteminfo['price'],
 							'quantity' => $item->quantity,
 							'merchantRef' => $order->id,
 						];
@@ -298,7 +299,9 @@ class Livex extends Model
 			}
 			Log::debug($orders);
 			#dd($orders);
-			$params = $orders;
+			$params = ['orders' => $orders];
+			#dd($params);
+			#dd(json_encode($params));
 
 			$client = new Client();
 			#$response = $client->post($url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
@@ -312,14 +315,14 @@ class Livex extends Model
 			
 			if($body = $response->getBody()){
 				$data = json_decode($response->getBody(), true);
-				dd($data);
+				#dd($data);
 				if($data['status'] == 'OK'){
-					foreach($data['orderStatus']['status'] as $order_status){
+					foreach($data['orders']['order'] as $order_data){
 						
-						#check if able to proceed with Aero order here...
-						if($order_status['orderStatus'] ==  'S'){
-							#offer has been suspended - stop user from progressing through checkout
-							$proceed_with_order = false;
+						$order->additional('livex_guid', $order_data['2c539d32-e729-463d-be32-8d2df64e3c81']);
+						
+						if($order_data['errors']){
+							Log::warning(json_encode($data));
 						}
 					}
 				}
