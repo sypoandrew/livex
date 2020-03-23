@@ -160,7 +160,8 @@ class Livex extends Model
      * Order Status API – check status of offers in basket (prior to checkout payment)
      *
      * @param \Aero\Cart\Models\Order $order
-     * @return boolean
+     * @param boolean $return_result
+     * @return boolean | mixed if $return_result
      */
     public function order_status(\Aero\Cart\Models\Order $order, $return_result = false)
     {
@@ -248,11 +249,11 @@ class Livex extends Model
      * Orders API – send order to Liv-ex (after checkout payment)
      *
      * @param \Aero\Cart\Models\Order $order
-     * @return mixed
+     * @return void
      */
     public function add_order(\Aero\Cart\Models\Order $order)
     {
-		$url = $this->base_url . 'exchange/v4/orders';
+		$url = $this->base_url . 'exchange/v5/orders';
         $headers = [
 			'CLIENT_KEY' => $this->get_client_key(),
 			'CLIENT_SECRET' => $this->get_client_secret(),
@@ -260,16 +261,14 @@ class Livex extends Model
 			'CONTENT-TYPE' => 'application/json',
 		];
 		
-		$orders = [];
-		
 		#get the item status from Liv-ex - this is in nice format to then handle the params to post the order
 		$dets = $this->order_status($order, true);
+		#dd('order_status');
 		#dd($dets);
+		
 		if(is_array($dets) and count($dets) > 0){
 			
-			################################
-			# TODO - correctly handle Livex orders
-			################################
+			Log::debug(__FUNCTION__);
 			
 			$orderItems = $order->items()->get();
 			#dd($orderItems);
@@ -278,11 +277,9 @@ class Livex extends Model
 				foreach($orderItems as $item){
 					$lwin18 = $iteminfo['lwin'] . $iteminfo['vintage'] . $iteminfo['bottleInCase'] . $iteminfo['bottleSize'];
 					if(substr($item->sku, 0, -2) == 'LX'.$lwin18){
-						$dutyPaid = (substr($item->sku, 0, -2) == 'DP') ? true : false;
-						$enPremeur = (substr($item->sku, 0, -2) == 'EP') ? true : false;
 						
 						#dd($item);
-						$orders[] = [
+						$order_det[] = [
 							'contractType' => $iteminfo['contractType'], #sib/sep/x
 							#'orderType' => $iteminfo['orderType'],
 							'orderType' => 'b', #bid
@@ -293,41 +290,47 @@ class Livex extends Model
 							'price' => (int) $iteminfo['price'],
 							'quantity' => $item->quantity,
 							'merchantRef' => $order->id,
+							'overrideFatFinger' => true, #Bypass system checks that prevent price keying errors.
 						];
-					}
-				}
-			}
-			Log::debug($orders);
-			#dd($orders);
-			$params = ['orders' => $orders];
-			#dd($params);
-			#dd(json_encode($params));
-
-			$client = new Client();
-			#$response = $client->post($url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
-			$response = $client->post($url, ['headers' => $headers, 'json' => $params]);
-
-			$status_code = $response->getStatusCode(); // 200
-			$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
-			
-			Log::debug(__FUNCTION__);
-			#Log::debug($status_code);
-			
-			if($body = $response->getBody()){
-				$data = json_decode($response->getBody(), true);
-				#dd($data);
-				if($data['status'] == 'OK'){
-					foreach($data['orders']['order'] as $order_data){
 						
-						$order->additional('livex_guid', $order_data['2c539d32-e729-463d-be32-8d2df64e3c81']);
+						#we post each order line separately so we can correctly store GUID against the SKU
 						
-						if($order_data['errors']){
-							Log::warning(json_encode($data));
+						$params = ['orders' => $order_det];
+						#dd($params);
+						#dd(json_encode($params));
+
+						$client = new Client();
+						#$response = $client->post($url, ['headers' => $headers, 'json' => $params, 'debug' => true]);
+						$response = $client->post($url, ['headers' => $headers, 'json' => $params]);
+
+						$status_code = $response->getStatusCode(); // 200
+						$content_type = $response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+						
+						#Log::debug($status_code);
+						
+						if($body = $response->getBody()){
+							$data = json_decode($response->getBody(), true);
+							#dd($data);
+							#Log::debug($data);
+							if($data['status'] == 'OK'){
+								foreach($data['orders']['order'] as $order_data){
+									if($order_data['orderGUID']){
+										$order->additional('livex_guid_'.$item->sku, $order_data['orderGUID']);
+									}
+									
+									if($order_data['errors']){
+										Log::warning(json_encode($data));
+									}
+								}
+							}
+							else{
+								Log::warning(json_encode($data));
+							}
+						}
+						else{
+							Log::warning('unable to post order line '.$item->sku.' to Livex');
 						}
 					}
-				}
-				else{
-					Log::warning(json_encode($data));
 				}
 			}
 		}
@@ -474,7 +477,7 @@ class Livex extends Model
 						}
 						
 						if(!$markets){
-							dd($item);
+							#dd($item);
 						}
 						
 						foreach($markets as $market){
@@ -495,7 +498,7 @@ class Livex extends Model
 								
 								if($created_p >= 1){
 									#die;
-									break;
+									#break;
 								}
 								
 								if($market['depth']['offers']['offer'][0]['price'] < 250){
@@ -516,6 +519,24 @@ class Livex extends Model
 									Log::debug('update the variant LX'.$sku.' duty paid '.(int)$dutyPaid);
 									#Log::debug($dutyPaid);
 									#dd('update the variant LX'.$sku);
+									
+									if(!$p->allImages()->count()){
+										
+										#Handle image placeholder
+										#do some assumptions for wine type...
+										if($country == 'Portugal'){
+											$wine_type = 'Fortified';
+										}
+										elseif($region == 'Champagne'){
+											$wine_type = 'Sparkling';
+										}
+										else{
+											$wine_type = 'Still';
+										}
+										
+										Log::debug($sku.' no image - add placeholder '.$wine_type . ' ' . $colour);
+										$this->handlePlaceholderImage($p, $wine_type, $colour);
+									}
 									
 									#check for orderGUID tag
 									$order_guid = $market['depth']['offers']['offer'][0]['orderGUID'];
@@ -773,8 +794,9 @@ class Livex extends Model
      */
     public function basket_items_limit_reached(\Aero\Cart\Cart $cart)
     {
-		dd($cart->items());
+		#dd($cart->items());
 		$items = $cart->items();
+		$livex_total = 0;
 		if(!$items->isEmpty()){
 			foreach($items as $item){
 				if(substr($item->sku, 0, 2) == 'LX'){
@@ -783,7 +805,10 @@ class Livex extends Model
 			}
 		}
 		
-		#if($livex_total > setting('')
+		if($livex_total > (setting('Livex.max_subtotal_in_basket') * 100)){
+			return true;
+		}
+		return false;
     }
 
     /**
@@ -878,24 +903,24 @@ class Livex extends Model
 		else{
 			#deduce image from the colour/type using the plain default images 
 			
-			if($wine_type == 'sparkling'){
-				if($colour == 'rose'){
+			if($wine_type == 'Sparkling'){
+				if($colour == 'Rose'){
 					$image_name = 'sparklingrose.png';
 				}
 				else{
 					$image_name = 'sparkling.png';
 				}
 			}
-			elseif($wine_type == 'fortified'){
+			elseif($wine_type == 'Fortified'){
 				$image_name = 'fortified.png';
 			}
-			elseif($colour == 'red'){
+			elseif($colour == 'Red'){
 				$image_name = 'red.png';
 			}
-			elseif($colour == 'rose'){
+			elseif($colour == 'Rose'){
 				$image_name = 'rose.png';
 			}
-			elseif($colour == 'white'){
+			elseif($colour == 'White'){
 				$image_name = 'white.png';
 			}
 			

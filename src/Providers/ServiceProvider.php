@@ -56,49 +56,5 @@ class ServiceProvider extends ModuleServiceProvider
 		$valuestore->put('max_subtotal_in_basket', '3000');
 		
 		$this->loadViewsFrom(__DIR__ . '/../../resources/views/', 'livex');
-		
-		PaymentMethod::setCartValidator(function ($method, $cart) {
-			Log::debug('checking payment methods');
-			#Log::debug($method->driver);
-			#Log::debug(setting('Livex.max_subtotal_in_basket'));
-			#Log::debug($cart->subtotal()->incValue);
-			
-			
-			if($method->driver == 'cash'){
-				/* if($cart->subtotal()->incValue > (setting('Livex.max_subtotal_in_basket') * 100)){
-					return true;
-				}
-				return false; */
-				
-				#always allow bank transfer option
-				return true;
-			}
-			elseif($method->driver == 'realex'){
-				if($cart->subtotal()->incValue < (setting('Livex.max_subtotal_in_basket') * 100)){
-					return true;
-				}
-				return false;
-			}
-			
-			#default handling - shouldn't reach here
-			return true;
-			
-			/* 
-			#checking on Liv-Ex items only...
-			$livex_subtotal = 0;
-			foreach($cart->items() as $item){
-				#dd($item);
-				Log::debug($item->sku);
-				if(substr($item->sku, 0, 2) == 'LX'){
-					$livex_subtotal += $item->subtotal()->incValue;
-				}
-			}
-			
-			if($livex_subtotal < settings('max_subtotal_in_basket')){
-				return true;
-			}
-			#dd($livex_subtotal);
-			 */
-		});
     }
 }
