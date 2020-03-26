@@ -4,6 +4,10 @@ namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
 use Sypo\Livex\Models\Livex;
+use Aero\Catalog\Models\Product;
+use Illuminate\Support\Facades\Log;
+use Mail;
+use Sypo\Livex\Mail\ImageReport;
 
 class PlaceholderImage extends Command
 {
@@ -39,17 +43,28 @@ class PlaceholderImage extends Command
     public function handle()
     {
 		$l = new Livex;
-		$groups = $l->get_tag_groups();
-		
-		$products = Product::join('product_images', 'product_images.product_id', '=', 'products.id')->where('product_images.product_id', 'is', 'null');
-		Log::debug($products->toSql());
-		/* $products = $products->get();
-		
-		
+		$products = $this->get_products_without_images();
 		foreach($products as $product){
 			#Handle image placeholder
-			Log::debug($sku.' - add placeholder');
-			$this->handlePlaceholderImage($product, $wine_type, $colour);
-		} */
+			Log::debug($product->model.' - add placeholder image');
+			$l->handlePlaceholderImage($product);
+		}
+		
+		#send report to Simon on items with missing products
+		$products = $this->get_products_without_images(true);
+		$email = new ImageReport($products);
+		Mail::send($email);
     }
+	
+	protected function get_products_without_images($cutdown = false){
+		if($cutdown){
+			$products = Product::select('products.model', 'products.name')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id');
+		} else{
+			$products = Product::select('products.*')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id');
+		}
+		#Log::debug($products->toSql());
+		$products = $products->get();
+		
+		return $products;
+	}
 }

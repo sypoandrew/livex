@@ -705,8 +705,10 @@ class Livex extends Model
 										$variant->stock_level = $market['depth']['offers']['offer'][0]['quantity'];
 										$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
 										$variant->sku = $p->model.'IB';
+										$variant->product_tax_group_id = 2; #non-taxable
 										if($dutyPaid){
 											$variant->sku = $p->model.'DP';
+											$variant->product_tax_group_id = 1; #taxable
 										}
 										if($variant->save()){
 											$created_v++;
@@ -851,11 +853,11 @@ class Livex extends Model
      * @param \Aero\Catalog\Models\Product $product
      * @return void
      */
-    protected function handlePlaceholderImage(\Aero\Catalog\Models\Product $product)
+    public function handlePlaceholderImage(\Aero\Catalog\Models\Product $product)
     {
 		$image_src = null;
 		
-		Log::debug(__FUNCTION__);
+		#Log::debug(__FUNCTION__);
 		
 		if(!$this->library_files){
 			$files = File::files(storage_path('app/image_library/library/'));
@@ -866,12 +868,22 @@ class Livex extends Model
 		#dd($this->library_files);
 		
 		$groups = $this->get_tag_groups();
+		#dd($groups);
+		
+		$wine_type = '';
+		$colour = '';
 		
 		$tag_group = $groups['Wine Type'];
-		$wine_type = $product->tags()->where('tag_group_id', $tag_group->id)->first();
+		$tag = $product->tags()->where('tag_group_id', $tag_group->id)->first();
+		if($tag != null){
+			$wine_type = $tag->name;
+		}
 		
 		$tag_group = $groups['Colour'];
-		$colour = $product->tags()->where('tag_group_id', $tag_group->id)->first();
+		$tag = $product->tags()->where('tag_group_id', $tag_group->id)->first();
+		if($tag != null){
+			$colour = $tag->name;
+		}
 		
 		
 		$image_name = '';
@@ -904,7 +916,7 @@ class Livex extends Model
 		
 		if($image_name){
 			$image_src = storage_path('app/image_library/library/'.$image_name);
-			Log::debug('use library image - '.$image_src);
+			Log::debug($product->model.' use library image - '.$image_src);
 		}
 		else{
 			#deduce image from the colour/type using the plain default images 
@@ -932,8 +944,11 @@ class Livex extends Model
 			
 			if($image_name){
 				$image_src = storage_path('app/image_library/defaults/'.$image_name);
+				Log::debug($product->model.' use default image - '.$image_src);
 			}
-			Log::debug('use default image - '.$image_src);
+			else{
+				Log::debug($product->model.' unable to create from default image - '.$wine_type.' | '.$colour);
+			}
 		}
 		
 		if($image_src !== null){
