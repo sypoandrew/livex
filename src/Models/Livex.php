@@ -28,6 +28,7 @@ class Livex extends Model
     protected $environment;
     protected $base_url;
     private $library_files;
+    private $tag_groups;
 
     /**
      * Create a new command instance.
@@ -78,14 +79,17 @@ class Livex extends Model
      */
     protected function get_tag_groups()
     {
+		if($this->tag_groups){
+			return $this->tag_groups;
+		}
 		$groups = TagGroup::whereIn("name->{$this->language}", ['Bottle Size', 'Case Size', 'Colour', 'Country', 'Region', 'Sub Region', 'Vintage', 'Wine Type', 'Burgundy Cru', 'Liv-Ex Order GUID'])->get();
 		
-		$arr = [];
+		$this->tag_groups = [];
 		foreach($groups as $g){
-			$arr[$g->name] = $g;
+			$this->tag_groups[$g->name] = $g;
 		}
-		#Log::debug($arr);
-		return $arr;
+		#Log::debug($this->tag_groups);
+		return $this->tag_groups;
     }
 
     /**
@@ -491,6 +495,7 @@ class Livex extends Model
 							$sku = $market['lwin']; #LWIN18
 							$dutyPaid = $market['special']['dutyPaid']; #true/false
 							$minimumQty = $market['special']['minimumQty'];
+							$isCompetitive = $market['depth']['offers']['offer'][0]['isCompetitive'];
 							
 							$burgundy_cru = '';
 
@@ -513,6 +518,12 @@ class Livex extends Model
 									continue;
 								}
 								
+								if($dutyPaid){
+									$error++;
+									Log::debug("ignore $sku due to dutyPaid {$dutyPaid}");
+									continue;
+								}
+								
 								$p = Product::where('model', 'LX'.$sku)->first();
 								if($p != null){
 									#already on system - just update the essentials
@@ -521,21 +532,9 @@ class Livex extends Model
 									#dd('update the variant LX'.$sku);
 									
 									if(!$p->allImages()->count()){
-										
 										#Handle image placeholder
-										#do some assumptions for wine type...
-										if($country == 'Portugal'){
-											$wine_type = 'Fortified';
-										}
-										elseif($region == 'Champagne'){
-											$wine_type = 'Sparkling';
-										}
-										else{
-											$wine_type = 'Still';
-										}
-										
-										Log::debug($sku.' no image - add placeholder '.$wine_type . ' ' . $colour);
-										$this->handlePlaceholderImage($p, $wine_type, $colour);
+										Log::debug($sku.' no image - add placeholder');
+										$this->handlePlaceholderImage($p);
 									}
 									
 									#check for orderGUID tag
@@ -755,7 +754,7 @@ class Livex extends Model
 										}
 										
 										#Handle image
-										$this->handlePlaceholderImage($p, $wine_type, $colour);
+										$this->handlePlaceholderImage($p);
 									}
 									else{
 										$create_p_failed++;
@@ -850,11 +849,9 @@ class Livex extends Model
 
     /**
      * @param \Aero\Catalog\Models\Product $product
-     * @param string $wine_type
-     * @param string $colour
      * @return void
      */
-    protected function handlePlaceholderImage(\Aero\Catalog\Models\Product $product, $wine_type, $colour)
+    protected function handlePlaceholderImage(\Aero\Catalog\Models\Product $product)
     {
 		$image_src = null;
 		
@@ -867,6 +864,15 @@ class Livex extends Model
 			}
 		}
 		#dd($this->library_files);
+		
+		$groups = $this->get_tag_groups();
+		
+		$tag_group = $groups['Wine Type'];
+		$wine_type = $product->tags()->where('tag_group_id', $tag_group->id)->first();
+		
+		$tag_group = $groups['Colour'];
+		$colour = $product->tags()->where('tag_group_id', $tag_group->id)->first();
+		
 		
 		$image_name = '';
 		
