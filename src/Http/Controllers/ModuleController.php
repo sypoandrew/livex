@@ -6,7 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Aero\Admin\Facades\Admin;
 use Aero\Admin\Http\Controllers\Controller;
-use Spatie\Valuestore\Valuestore;
 
 class ModuleController extends Controller
 {
@@ -44,13 +43,6 @@ class ModuleController extends Controller
 		
 		$formdata = $request->json()->all();
 		Log::debug($formdata);
-		
-		
-		/* $valuestore = Valuestore::make(storage_path('app/livex.json'));
-		$valuestore->put('enabled', $formdata['enabled']);
-		$valuestore->put('stock_threshold', $formdata['stock_threshold']);
-		$valuestore->put('price_threshold', $formdata['price_threshold']);
-		$valuestore->put('margin_markup', $formdata['margin_markup']); */
 		
 		
         return redirect(route('admin.modules.livex'));

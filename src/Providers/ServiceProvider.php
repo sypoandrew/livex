@@ -9,7 +9,6 @@ use Aero\Common\Providers\ModuleServiceProvider;
 use Aero\Common\Facades\Settings;
 use Aero\Common\Settings\SettingGroup;
 use Aero\Payment\Models\PaymentMethod;
-use Spatie\Valuestore\Valuestore;
 use Illuminate\Support\Facades\Log;
 
 class ServiceProvider extends ModuleServiceProvider
@@ -48,13 +47,6 @@ class ServiceProvider extends ModuleServiceProvider
             $group->integer('margin_markup')->default(10);
             $group->integer('max_subtotal_in_basket')->default(3000);
         });
-		
-		#$valuestore = Valuestore::make(storage_path('app/livex.json'));
-		#$valuestore->put('enabled', '1');
-		#$valuestore->put('stock_threshold', '0');
-		#$valuestore->put('price_threshold', '250');
-		#$valuestore->put('margin_markup', '10');
-		#$valuestore->put('max_subtotal_in_basket', '3000');
 		
 		$this->loadViewsFrom(__DIR__ . '/../../resources/views/', 'livex');
     }
