@@ -2,11 +2,11 @@
 
 namespace Sypo\Livex\Listeners;
 
-use Aero\Cart\Events\OrderSuccessful;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Sypo\Livex\Models\Livex;
 use Illuminate\Support\Facades\Log;
+use Aero\Cart\Events\OrderSuccessful;
+use Sypo\Livex\Models\OrderAPI;
 
 class SendOrderToLivex implements ShouldQueue
 {
@@ -25,8 +25,8 @@ class SendOrderToLivex implements ShouldQueue
 			Log::debug('send to livex');
 			
 			#handle Liv-ex API call
-			$livex = new Livex;
-			$livex->add_order($order);
+			$livex = new OrderAPI;
+			$livex->add($order);
 		}
 		else{
 			

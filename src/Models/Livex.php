@@ -7,15 +7,17 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Aero\Catalog\Events\ProductCreated;
+use Aero\Catalog\Events\ProductUpdated;
 use Aero\Catalog\Models\Price;
 use Aero\Catalog\Models\Product;
 use Aero\Catalog\Models\Variant;
 use Aero\Catalog\Models\Tag;
 use Aero\Catalog\Models\TagGroup;
 use Aero\Catalog\Models\Attribute;
+use Aero\Cart\Models\Order;
 use Aero\Common\Models\Currency;
 use Aero\Common\Models\Image;
-use Aero\Cart\Models\Order;
 use Illuminate\Http\UploadedFile;
 use Spatie\LaravelImageOptimizer\Facades\ImageOptimizer;
 
@@ -29,6 +31,13 @@ class Livex extends Model
     protected $base_url;
     private $library_files;
     private $tag_groups;
+
+    /**
+     * Storage of products that have been processed.
+     *
+     * @var array
+     */
+    protected $products = ['created' => [], 'updated' => []];
 
     /**
      * Create a new command instance.
@@ -763,6 +772,9 @@ class Livex extends Model
 									}
 								}
 								
+								#add product to array for reindexing
+								$this->addToProducts($p);
+								
 								#dd($p);
 								#dd($p->id);
 							}
@@ -775,6 +787,8 @@ class Livex extends Model
 						} #end markets loop
 					} #end search response loop
 					
+					#force reindexing
+					$this->checkIndexing(true);
 					
 					Log::debug("Search API complete");
 					Log::debug("created products $created_p/$total | created variants $created_v/$total | failed products $create_p_failed/$total | failed variants $create_v_failed/$total | updated $updated/$total | update failed $update_failed/$total | ignored $error/$total");
@@ -828,6 +842,49 @@ class Livex extends Model
 			$item_price_w_markup = $item_price * (1 + (setting('Livex.margin_markup') / 100)) + 25;
 		}
 		return $item_price_w_markup * 100; #Aero stores price as int
+    }
+
+    /**
+     * Add a product to the queue to be indexed.
+     *
+     * @param $product
+     */
+    protected function addToProducts($product): void
+    {
+        if ($product) {
+            if ($product->wasRecentlyCreated) {
+                $product->wasRecentlyCreated = false;
+                $this->products['created'][$product->id] = $product;
+            } else {
+                $this->products['updated'][$product->id] = $product;
+            }
+        }
+    }
+
+    /**
+     * Check stored products to index.
+     *
+     * @param bool $force
+     */
+    protected function checkIndexing($force = false): void
+    {
+        if ($force || count($this->products['created']) > 5) {
+            foreach ($this->products['created'] as $key => $product) {
+                event(new ProductCreated($product));
+                unset($this->products['created'][$key]);
+            }
+
+            $this->products['created'] = [];
+        }
+
+        if ($force || count($this->products['updated']) > 5) {
+            foreach ($this->products['updated'] as $key => $product) {
+                event(new ProductUpdated($product));
+                unset($this->products['updated'][$key]);
+            }
+
+            $this->products['updated'] = [];
+        }
     }
 
     /**

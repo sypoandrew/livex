@@ -3,7 +3,7 @@
 namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
-use Sypo\Livex\Models\Livex;
+use Sypo\Livex\Models\SearchMarketAPI;
 
 class SearchMarket extends Command
 {
@@ -38,7 +38,7 @@ class SearchMarket extends Command
      */
     public function handle()
     {
-        $l = new Livex;
-		$l->search_market();
+        $l = new SearchMarketAPI;
+		$l->call();
     }
 }

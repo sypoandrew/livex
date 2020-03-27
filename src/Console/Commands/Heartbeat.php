@@ -3,7 +3,7 @@
 namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
-use Sypo\Livex\Models\Livex;
+use Sypo\Livex\Models\HeartbeatAPI;
 
 class Heartbeat extends Command
 {
@@ -38,7 +38,12 @@ class Heartbeat extends Command
      */
     public function handle()
     {
-        $l = new Livex;
-		$l->heartbeat();
+        $l = new HeartbeatAPI;
+		if($l->call()){
+			$this->info('Liv-ex API is available');
+		}
+		else{
+			$this->info('Liv-ex API is unavailable, or an error occured');
+		}
     }
 }
