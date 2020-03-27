@@ -493,7 +493,7 @@ class SearchMarketAPI extends LivexAPI
      * @param \Aero\Catalog\Models\TagGroup $group
      * @return \Aero\Catalog\Models\Tag
      */
-    protected function findOrCreateTag($name, TagGroup $group)
+    protected function findOrCreateTag($name, \Aero\Catalog\Models\TagGroup $group)
     {
         $tag = $group->tags()->where("name->{$this->language}", $name)->first();
 
