@@ -28,7 +28,14 @@ class ModuleController extends Controller
      */
     public function update(Request $request)
     {
-		$res = ['success'=>false,'data'=>false,'error'=>[]];
+		$imageName = time().'.'.$request->file->getClientOriginalExtension();
+		$imageName = $request->file->getClientOriginalExtension();
+        $request->file->move(storage_path('app/image_library'), $imageName);
+         
+    	return response()->json(['success'=>'You have successfully upload file.']);
+		
+		
+		/* $res = ['success'=>false,'data'=>false,'error'=>[]];
 		
         $validator = \Validator::make($request->all(), [
             'stock_threshold' => 'required|int',
@@ -45,6 +52,6 @@ class ModuleController extends Controller
 		Log::debug($formdata);
 		
 		
-        return redirect(route('admin.modules.livex'));
+        return redirect(route('admin.modules.livex')); */
     }
 }
