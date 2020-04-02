@@ -250,11 +250,12 @@ class SearchMarketAPI extends LivexAPI
 								$bottle_size = self::format_bottle_size($bottle_size);
 								Log::debug($bottle_size);
 								
+								$nameHTML = "<p>$name</p>";
 								
 								$p = new Product;
 								$p->model = 'LX'.$sku;
 								$p->name = $name;
-								$p->summary = $name;
+								$p->summary = $nameHTML;
 								$p->description = $name;
 								$p->active = false; #initially hide - to be vetted prior to listing on website
 								$p->type = 'variant';
