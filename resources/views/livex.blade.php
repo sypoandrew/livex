@@ -16,6 +16,39 @@
 	<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
 		@csrf
 		<div class="card mt-4 w-full">
+			<h3>Liv-Ex API settings for Aero Commerce</h3>
+			<div class="mt-4 w-full">
+			<label for="enabled" class="block">
+			<label class="checkbox">
+			@if(setting('Livex.enabled'))
+			<input type="checkbox" id="enabled" name="enabled" checked="checked" value="1">
+			@else
+			<input type="checkbox" id="enabled" name="enabled" value="1">
+			@endif
+			<span></span>
+			</label>Enabled
+			</label>
+			</div>
+			<div class="mt-4 w-full">
+			<label for="enabled" class="block">Stock Threshold</label>
+			<input type="text" id="stock_threshold" name="stock_threshold" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.stock_threshold') }}">
+			</div>
+			<div class="mt-4 w-full">
+			<label for="enabled" class="block">Price Threshold</label>
+			<input type="text" id="price_threshold" name="price_threshold" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.price_threshold') }}">
+			</div>
+			<div class="mt-4 w-full">
+			<label for="enabled" class="block">Margin Markup %</label>
+			<input type="text" id="margin_markup" name="margin_markup" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.margin_markup') }}">
+			</div>
+		</div>
+		
+		<div class="card mt-4 p-4 w-full flex flex-wrap"><button type="submit" class="btn btn-secondary">Save</button> </div>
+	</form>
+	
+	<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
+		@csrf
+		<div class="card mt-4 w-full">
 			<h3>Add images to Product Library</h3>
 			<p>TBC</p>
 			<!--
