@@ -16,14 +16,14 @@
 		@csrf
 		<div class="card mt-4 w-full">
 			<h3>Add images to Product Library</h3>
-			
-			
+			<p>TBC</p>
+			<!--
 			<template>
 			<div id="app">
 				<vue-dropzone id="drop1" :options="dropOptions"></vue-dropzone>
 			</div>
 			</template>
-			
+			-->
 			
 			
 		</div>
