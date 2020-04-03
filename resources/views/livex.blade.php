@@ -1,8 +1,9 @@
 @extends('admin::layouts.main')
 
 @section('content')
-
+<!--
     <livex-management inline-template>
+			-->
 
 
     <div class="flex pb-2 mb-4">
@@ -31,5 +32,7 @@
 		<div class="card mt-4 p-4 w-full flex flex-wrap"><button type="submit" class="btn btn-secondary">Save</button> </div>
 	</form>
 		
+			<!--
 		</livex-management>
+			-->
 @endsection
