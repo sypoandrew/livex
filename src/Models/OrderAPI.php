@@ -62,7 +62,7 @@ class OrderAPI extends LivexAPI
 						$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
 						$this->set_responsedata();
 
-						$this->responsedata = json_decode($response->getBody(), true);
+						$this->responsedata = json_decode($this->response->getBody(), true);
 						#dd($this->responsedata);
 						#Log::debug($this->responsedata);
 						if($this->responsedata['status'] == 'OK'){
