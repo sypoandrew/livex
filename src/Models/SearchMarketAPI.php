@@ -91,6 +91,7 @@ class SearchMarketAPI extends LivexAPI
 			$updated = 0;
 			$update_failed = 0;
 			$error = 0;
+			$processed_items = [];
 			
 			$img = new PlaceholderImage;
 			
@@ -166,6 +167,8 @@ class SearchMarketAPI extends LivexAPI
 								Log::debug('update the variant LX'.$sku.' duty paid '.(int)$dutyPaid);
 								#Log::debug($dutyPaid);
 								#dd('update the variant LX'.$sku);
+								
+								$processed_items[] = $p->id;
 								
 								if(!$p->allImages()->count()){
 									#Handle image placeholder
@@ -263,6 +266,8 @@ class SearchMarketAPI extends LivexAPI
 								
 								if($p->save()){
 									$created_p++;
+									
+									$processed_items[] = $p->id;
 									
 									#add into categories
 									foreach($categories as $category_id){
@@ -414,6 +419,11 @@ class SearchMarketAPI extends LivexAPI
 						}
 					} #end markets loop
 				} #end search response loop
+				
+				#zero all other Livex stock that wasn't on the feed
+				#dd($processed_items);
+				#dd(Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $processed_items)->toSql());
+				Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $processed_items)->update(['stock_level' => 0]);
 				
 				#force reindexing
 				$this->checkIndexing(true);
