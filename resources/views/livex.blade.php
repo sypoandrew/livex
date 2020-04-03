@@ -13,6 +13,13 @@
 		</h2>
     </div>
     @include('admin::partials.alerts')
+	
+	@if(session()->has('message'))
+		<div class="alert alert-success">
+			{{ session()->get('message') }}
+		</div>
+	@endif
+	
 	<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
 		@csrf
 		<div class="card mt-4 w-full">
@@ -64,6 +71,34 @@
 		
 		<div class="card mt-4 p-4 w-full flex flex-wrap"><button type="submit" class="btn btn-secondary">Save</button> </div>
 	</form>
+	
+	
+	<form action="{{ route('admin.modules.livex.search_market') }}" method="get" class="flex flex-wrap mb-8">
+		@csrf
+		
+		<div class="card mt-4 p-4 w-full flex flex-wrap">
+			<h3 class="w-full">Liv-ex Search Market API</h3>
+			<p><strong>NOTE:</strong> this is run via an automated routine every X minutes. Press the button below to run the routine manually.</p>
+		</div>
+		<div class="card mt-4 p-4 w-full flex flex-wrap">
+			<button type="submit" class="btn btn-secondary">Process</button>
+		</div>
+	</form>
+	
+	<form action="{{ route('admin.modules.livex.placeholder_image') }}" method="get" class="flex flex-wrap mb-8">
+		@csrf
+		
+		<div class="card mt-4 p-4 w-full flex flex-wrap">
+			<h3 class="w-full">Create Placeholder Images</h3>
+			<p><strong>NOTE:</strong> this is run via an automated routine every X minutes. Press the button below to run the routine manually.</p>
+			<p><strong>NOTE:</strong> an email will be sent after the routine is complete, with any products still missing images reported on. This is usually due to missing colour, wine type data.</p>
+		</div>
+		<div class="card mt-4 p-4 w-full flex flex-wrap">
+			<button type="submit" class="btn btn-secondary">Process</button>
+		</div>
+	</form>
+	
+	
 		
 			<!--
 		</livex-management>

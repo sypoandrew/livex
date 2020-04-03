@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Aero\Admin\Facades\Admin;
 use Aero\Admin\Http\Controllers\Controller;
+use Sypo\Livex\Models\SearchMarketAPI;
 
 class ModuleController extends Controller
 {
@@ -52,6 +53,31 @@ class ModuleController extends Controller
 		Log::debug($formdata);
 		
 		
-        return redirect(route('admin.modules.livex')); */
+        return redirect()->back()->with('message', 'Settings updated.'); */
+    }
+    
+	/**
+     * Manually run the Search Market API
+     *
+     * @return void
+     */
+    public function search_market(Request $request)
+    {
+    	$l = new SearchMarketAPI;
+		$l->call();
+		
+		return redirect()->back()->with('message', 'You have successfully run the Search Market API.');
+    }
+    
+	/**
+     * Manually run the Placeholder image
+     *
+     * @return void
+     */
+    public function placeholder_image(Request $request)
+    {
+    	\Artisan::call('sypo:livex:image');
+		
+		return redirect()->back()->with('message', 'You have successfully run the Placeholder image routine.');
     }
 }
