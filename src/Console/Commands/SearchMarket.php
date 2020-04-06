@@ -40,5 +40,15 @@ class SearchMarket extends Command
     {
         $l = new SearchMarketAPI;
 		$l->call();
+		
+		$this->info('Process complete');
+		$this->info("processed {$l->result['i']}/{$l->result['count']}");
+		$this->info("created products {$l->result['created_p']}/{$l->result['count']}");
+		$this->info("created variants {$l->result['created_v']}/{$l->result['count']}");
+		$this->info("failed products {$l->result['create_p_failed']}/{$l->result['count']}");
+		$this->info("failed variants {$l->result['create_v_failed']}/{$l->result['count']}");
+		$this->info("updated {$l->result['updated']}/{$l->result['count']}");
+		$this->info("update failed {$l->result['update_failed']}/{$l->result['count']}");
+		$this->info("ignored {$l->result['error']}/{$l->result['count']}");
     }
 }

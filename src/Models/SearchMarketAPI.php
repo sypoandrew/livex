@@ -20,8 +20,7 @@ class SearchMarketAPI extends LivexAPI
 	protected $currency;
     protected $tag_groups;
     protected $attributes;
-    protected $count;
-    protected $i;
+    public $result = ['count' => 0, 'i' => 0, 'created_p' => 0, 'created_v' => 0, 'create_p_failed' => 0, 'create_v_failed' => 0, 'updated' => 0, 'update_failed' => 0, 'error' => 0];
     /**
      * Storage of products that have been processed.
      *
@@ -82,25 +81,27 @@ class SearchMarketAPI extends LivexAPI
 		#dd($this->responsedata);
 		#Log::debug($this->responsedata['pageInfo']);
 		if($this->responsedata['status'] == 'OK'){
-			$this->count = $this->responsedata['pageInfo']['totalResults'];
-			$this->i = 0;
-			$created_p = 0;
-			$created_v = 0;
-			$create_p_failed = 0;
-			$create_v_failed = 0;
-			$updated = 0;
-			$update_failed = 0;
-			$error = 0;
+			$this->result['count'] = $this->responsedata['pageInfo']['totalResults'];
+			$this->result['i'] = 0;
+			$this->result['created_p'] = 0;
+			$this->result['created_v'] = 0;
+			$this->result['create_p_failed'] = 0;
+			$this->result['create_v_failed'] = 0;
+			$this->result['updated'] = 0;
+			$this->result['update_failed'] = 0;
+			$this->result['error'] = 0;
 			$processed_items = [];
 			
 			$img = new PlaceholderImage;
 			
 			if(isset($this->responsedata['searchResponse'])){
+				#Log::debug($this->responsedata['searchResponse']);
+				$this->result['count'] = count($this->responsedata['searchResponse']);
 				foreach($this->responsedata['searchResponse'] as $item){
 					#Log::debug($item);
 					#Log::debug(json_encode($item));
 					
-					$this->i++;
+					$this->result['i']++;
 					
 					$lwin = $item['lwin'];
 					$name = $item['lwinName'];
@@ -125,7 +126,7 @@ class SearchMarketAPI extends LivexAPI
 						if(!count($market['depth']['offers']['offer'])){
 							#no active offers - skip this item
 							#dd($item);
-							$error++;
+							$this->result['error']++;
 							Log::debug("ignore $sku no offers");
 							continue;
 						}
@@ -138,25 +139,25 @@ class SearchMarketAPI extends LivexAPI
 
 						try{
 							
-							if($created_p >= 1){
+							if($this->result['created_p'] >= 1){
 								#die;
 								#break;
 							}
 							
 							if($market['depth']['offers']['offer'][0]['price'] < 250){
-								$error++;
+								$this->result['error']++;
 								Log::debug("ignore $sku due to price {$market['depth']['offers']['offer'][0]['price']}");
 								continue;
 							}
 							
 							if($minimumQty > 1){
-								$error++;
+								$this->result['error']++;
 								Log::debug("ignore $sku due to minimumQty {$minimumQty}");
 								continue;
 							}
 							
 							if($dutyPaid){
-								$error++;
+								$this->result['error']++;
 								Log::debug("ignore $sku due to dutyPaid {$dutyPaid}");
 								continue;
 							}
@@ -215,7 +216,7 @@ class SearchMarketAPI extends LivexAPI
 								
 								$minimumQty = ($minimumQty) ? $minimumQty : 0;
 								$p->variants()->update(['stock_level' => $market['depth']['offers']['offer'][0]['quantity'], 'minimum_quantity' => $minimumQty]);
-								$updated++;
+								$this->result['updated']++;
 								
 								$in_bond_item = $p->variants()->where('sku', $p->model.'IB')->first();
 								if($in_bond_item != null){
@@ -265,7 +266,7 @@ class SearchMarketAPI extends LivexAPI
 								
 								
 								if($p->save()){
-									$created_p++;
+									$this->result['created_p']++;
 									
 									$processed_items[] = $p->id;
 									
@@ -353,7 +354,7 @@ class SearchMarketAPI extends LivexAPI
 										$variant->product_tax_group_id = 1; #taxable
 									}
 									if($variant->save()){
-										$created_v++;
+										$this->result['created_v']++;
 										
 										Log::debug('variant '.$variant->sku.' created successfully');
 										
@@ -392,7 +393,7 @@ class SearchMarketAPI extends LivexAPI
 										}
 									}
 									else{
-										$create_v_failed++;
+										$this->result['create_v_failed']++;
 										
 										Log::debug('variant '.$variant->sku.' failed to create');
 									}
@@ -401,7 +402,7 @@ class SearchMarketAPI extends LivexAPI
 									$img->handlePlaceholderImage($p);
 								}
 								else{
-									$create_p_failed++;
+									$this->result['create_p_failed']++;
 								}
 							}
 							
@@ -423,13 +424,20 @@ class SearchMarketAPI extends LivexAPI
 				#zero all other Livex stock that wasn't on the feed
 				#dd($processed_items);
 				#dd(Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $processed_items)->toSql());
+				$zero_stock_items = [];
+				$zero_stock = Variant::select('product_id')->where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $processed_items)->get();
+				foreach($zero_stock as $zero_stock_item){
+					$zero_stock_items[$zero_stock_item->product_id] = $zero_stock_item->product_id;
+					#add product to reindex routine
+					$this->addToProducts($zero_stock_item->product()->first());
+				}
 				Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $processed_items)->update(['stock_level' => 0]);
 				
 				#force reindexing
 				$this->checkIndexing(true);
 				
 				Log::debug("Search API complete");
-				Log::debug("created products $created_p/{$this->count} | created variants $created_v/{$this->count} | failed products $create_p_failed/{$this->count} | failed variants $create_v_failed/{$this->count} | updated $updated/{$this->count} | update failed $update_failed/{$this->count} | ignored $error/{$this->count}");
+				Log::debug("created products {$this->result['created_p']}/{$this->result['count']} | created variants {$this->result['created_v']}/{$this->result['count']} | failed products {$this->result['create_p_failed']}/{$this->result['count']} | failed variants {$this->result['create_v_failed']}/{$this->result['count']} | updated {$this->result['updated']}/{$this->result['count']} | update failed {$this->result['update_failed']}/{$this->result['count']} | ignored {$this->result['error']}/{$this->result['count']}");
 				
 			} #end check for search response
 		}
