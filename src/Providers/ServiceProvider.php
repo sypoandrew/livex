@@ -51,6 +51,7 @@ class ServiceProvider extends ModuleServiceProvider
             $group->string('image_report_send_from_name')->default('Andrew Tanner');
         });
 		
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 		$this->loadViewsFrom(__DIR__ . '/../../resources/views/', 'livex');
     }
 }

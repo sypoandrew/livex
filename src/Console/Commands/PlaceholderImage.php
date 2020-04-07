@@ -4,7 +4,6 @@ namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
 use Sypo\Livex\Models\Image;
-use Aero\Catalog\Models\Product;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Console\Helper\ProgressBar;
 

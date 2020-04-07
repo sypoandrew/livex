@@ -5,12 +5,14 @@ namespace Sypo\Livex\Models;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
+use Aero\Catalog\Models\Product;
 use Aero\Common\Models\Image as AeroImage;
 use Spatie\LaravelImageOptimizer\Facades\ImageOptimizer;
 use Sypo\Livex\Models\Helper;
 use Sypo\Livex\Models\EmailNotification;
 use Mail;
 use Sypo\Livex\Mail\ImageReport;
+use Carbon\Carbon;
 
 class Image
 {
@@ -223,7 +225,7 @@ class Image
         }
     }
 	
-	protected function get_products_without_images($cutdown = false){
+	public function get_products_without_images($cutdown = false){
 		if($cutdown){
 			$products = Product::select('products.model', 'products.name')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id');
 		} else{
@@ -235,7 +237,7 @@ class Image
 		return $products;
 	}
 	
-	protected function send_email_report(){
+	public function send_email_report(){
 		
 		#only send the email notification once a day
 		$notify = EmailNotification::where('code', 'missing_image_report')->whereDate('created_at', Carbon::today())->get();
