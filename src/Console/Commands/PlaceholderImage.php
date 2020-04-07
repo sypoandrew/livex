@@ -3,12 +3,9 @@
 namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
-use Sypo\Livex\Models\EmailNotification;
 use Sypo\Livex\Models\Image;
 use Aero\Catalog\Models\Product;
 use Illuminate\Support\Facades\Log;
-use Mail;
-use Sypo\Livex\Mail\ImageReport;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class PlaceholderImage extends Command
@@ -45,7 +42,7 @@ class PlaceholderImage extends Command
     public function handle()
     {
 		$l = new Image;
-		$products = $this->get_products_without_images();
+		$products = $l->get_products_without_images();
 		
         $progressBar = new ProgressBar($this->output, $products->count());
 		
@@ -56,27 +53,8 @@ class PlaceholderImage extends Command
 			$progressBar->advance();
 		}
 		
-		#only send the email notification once a day
-		$notify = EmailNotification::whereDate('created_at', Carbon::today())->get();
-		if($notify == null){
-			#send report to Simon on items with missing products
-			$products = $this->get_products_without_images(true);
-			$email = new ImageReport($products);
-			Mail::send($email);
-		}
+		$l->send_email_report();
 		
 		$progressBar->finish();
     }
-	
-	protected function get_products_without_images($cutdown = false){
-		if($cutdown){
-			$products = Product::select('products.model', 'products.name')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id');
-		} else{
-			$products = Product::select('products.*')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id');
-		}
-		#Log::debug($products->toSql());
-		$products = $products->get();
-		
-		return $products;
-	}
 }
