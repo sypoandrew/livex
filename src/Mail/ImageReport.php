@@ -35,9 +35,8 @@ class ImageReport extends Mailable
     {
 		$this
 		->subject('VinQuinn missing image report')
-		->to('andrew@sypo.co.uk')
-		->from('andrew@sypo.co.uk', 'Andrew Tanner')
-		->replyTo('andrew@sypo.co.uk', 'Andrew Tanner')
+		->to(setting('image_report_send_to_email'))
+		->from(setting('image_report_send_from_email'), setting('image_report_send_from_name'))
 		->markdown('livex::emails.imagereport');
 		
 		return $this;

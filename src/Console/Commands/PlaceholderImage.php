@@ -3,6 +3,7 @@
 namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
+use Sypo\Livex\Models\EmailNotification;
 use Sypo\Livex\Models\Image;
 use Aero\Catalog\Models\Product;
 use Illuminate\Support\Facades\Log;
@@ -55,10 +56,14 @@ class PlaceholderImage extends Command
 			$progressBar->advance();
 		}
 		
-		#send report to Simon on items with missing products
-		$products = $this->get_products_without_images(true);
-		$email = new ImageReport($products);
-		Mail::send($email);
+		#only send the email notification once a day
+		$notify = EmailNotification::whereDate('created_at', Carbon::today())->get();
+		if($notify == null){
+			#send report to Simon on items with missing products
+			$products = $this->get_products_without_images(true);
+			$email = new ImageReport($products);
+			Mail::send($email);
+		}
 		
 		$progressBar->finish();
     }
