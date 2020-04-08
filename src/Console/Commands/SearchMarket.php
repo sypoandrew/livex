@@ -4,6 +4,7 @@ namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
 use Sypo\Livex\Models\SearchMarketAPI;
+use Symfony\Component\Console\Helper\ProgressBar;
 
 class SearchMarket extends Command
 {
@@ -40,6 +41,14 @@ class SearchMarket extends Command
     {
         $l = new SearchMarketAPI;
 		$l->call();
+		
+        $progressBar = new ProgressBar($this->output, count($l->items));
+		foreach($l->items as $item){
+			$l->process_item($item);
+			$progressBar->advance();
+		}
+		$progressBar->finish();
+		$l->cleanup();
 		
 		$this->info('Process complete');
 		$this->info("processed {$l->result['i']}/{$l->result['count']}");

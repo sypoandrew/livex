@@ -64,9 +64,9 @@ class ModuleController extends Controller
     public function search_market(Request $request)
     {
     	$l = new SearchMarketAPI;
-		$l->call();
+		$l->process_all();
 		
-		return redirect()->back()->with('message', 'You have successfully run the Search Market API.');
+		return redirect()->back()->with('message', 'Successfully run the Search Market API.');
     }
     
 	/**
@@ -78,6 +78,6 @@ class ModuleController extends Controller
     {
     	\Artisan::call('sypo:livex:image');
 		
-		return redirect()->back()->with('message', 'You have successfully run the Placeholder image routine.');
+		return redirect()->back()->with('message', 'Successfully run the Placeholder image routine.');
     }
 }
