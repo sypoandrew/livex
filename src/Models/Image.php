@@ -11,7 +11,7 @@ use Spatie\LaravelImageOptimizer\Facades\ImageOptimizer;
 use Sypo\Livex\Models\Helper;
 use Sypo\Livex\Models\EmailNotification;
 use Mail;
-use Sypo\Livex\Mail\ImageReport;
+use Sypo\Livex\Mail\ImageReportMail;
 use Carbon\Carbon;
 
 class Image
@@ -240,15 +240,12 @@ class Image
 	public function send_email_report(){
 		
 		#only send the email notification once a day
-		$notify = EmailNotification::where('code', 'missing_image_report')->whereDate('created_at', Carbon::today())->get();
-		if($notify == null){
-			#send report to Simon on items with missing products
+		$report_sent = EmailNotification::where('code', 'missing_image_report')->whereDate('created_at', Carbon::today())->count();
+		if(!$report_sent){
+			#send report on items with missing products
 			$products = $this->get_products_without_images(true);
-			$email = new ImageReport($products);
+			$email = new ImageReportMail($products);
 			Mail::send($email);
-			
-			$notify->code = 'missing_image_report';
-			$notify->save();
 		}
 	}
 }

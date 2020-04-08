@@ -8,9 +8,10 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
+use Sypo\Livex\Models\EmailNotification;
 
 
-class ImageReport extends Mailable
+class ImageReportMail extends Mailable
 {
     use Queueable, SerializesModels;
 	
@@ -33,10 +34,18 @@ class ImageReport extends Mailable
      */
     public function build()
     {
+		$notify = new EmailNotification;
+		$user = \Auth::user();
+		if($user){
+			$notify->admin_id = $user->id;
+		}
+		$notify->code = 'missing_image_report';
+		$notify->save();
+		
 		$this
 		->subject('VinQuinn missing image report')
-		->to(setting('image_report_send_to_email'))
-		->from(setting('image_report_send_from_email'), setting('image_report_send_from_name'))
+		->to(setting('Livex.image_report_send_to_email'))
+		->from(setting('Livex.image_report_send_from_email'), setting('Livex.image_report_send_from_name'))
 		->markdown('livex::emails.imagereport');
 		
 		return $this;
