@@ -127,7 +127,7 @@ class SearchMarketAPI extends LivexAPI
 							#no active offers - skip this item
 							#dd($item);
 							$this->result['error']++;
-							Log::debug("ignore $sku no offers");
+							#Log::debug("ignore $sku no offers");
 							continue;
 						}
 						$sku = $market['lwin']; #LWIN18
@@ -146,26 +146,26 @@ class SearchMarketAPI extends LivexAPI
 							
 							if($market['depth']['offers']['offer'][0]['price'] < 250){
 								$this->result['error']++;
-								Log::debug("ignore $sku due to price {$market['depth']['offers']['offer'][0]['price']}");
+								#Log::debug("ignore $sku due to price {$market['depth']['offers']['offer'][0]['price']}");
 								continue;
 							}
 							
 							if($minimumQty > 1){
 								$this->result['error']++;
-								Log::debug("ignore $sku due to minimumQty {$minimumQty}");
+								#Log::debug("ignore $sku due to minimumQty {$minimumQty}");
 								continue;
 							}
 							
 							if($dutyPaid){
 								$this->result['error']++;
-								Log::debug("ignore $sku due to dutyPaid {$dutyPaid}");
+								#Log::debug("ignore $sku due to dutyPaid {$dutyPaid}");
 								continue;
 							}
 							
 							$p = Product::where('model', 'LX'.$sku)->first();
 							if($p != null){
 								#already on system - just update the essentials
-								Log::debug('update the variant LX'.$sku.' duty paid '.(int)$dutyPaid);
+								#Log::debug('update the variant LX'.$sku.' duty paid '.(int)$dutyPaid);
 								#Log::debug($dutyPaid);
 								#dd('update the variant LX'.$sku);
 								
@@ -173,7 +173,7 @@ class SearchMarketAPI extends LivexAPI
 								
 								if(!$p->allImages()->count()){
 									#Handle image placeholder
-									Log::debug($sku.' no image - add placeholder');
+									#Log::debug($sku.' no image - add placeholder');
 									$img->handlePlaceholderImage($p);
 								}
 								
@@ -246,13 +246,13 @@ class SearchMarketAPI extends LivexAPI
 							}
 							else{
 								#not currently on system - create it
-								Log::debug('create LX'.$sku);
+								#Log::debug('create LX'.$sku);
 								#dd('create LX'.$sku);
 								
 								$case_size = (int) $market['packSize'];
 								$bottle_size = $market['bottleSize']; #data in zero-padded millilitres e.g. 00750
 								$bottle_size = self::format_bottle_size($bottle_size);
-								Log::debug($bottle_size);
+								#Log::debug($bottle_size);
 								
 								$nameHTML = "<p>$name</p>";
 								
@@ -356,7 +356,7 @@ class SearchMarketAPI extends LivexAPI
 									if($variant->save()){
 										$this->result['created_v']++;
 										
-										Log::debug('variant '.$variant->sku.' created successfully');
+										#Log::debug('variant '.$variant->sku.' created successfully');
 										
 										#add the attribute for the variant Bond/Duty Paid
 										if($dutyPaid){
@@ -367,7 +367,7 @@ class SearchMarketAPI extends LivexAPI
 										}
 										
 										if(!$variant->attributes()->count()){
-											Log::debug('variant attribute failed to create');
+											Log::warning('variant attribute failed to create');
 										}
 										
 										#add the variant price
@@ -381,21 +381,21 @@ class SearchMarketAPI extends LivexAPI
 										
 										$item_price = $market['depth']['offers']['offer'][0]['price'];
 										$item_price_w_markup = $this->calculate_item_price($item_price);
-										Log::debug($item_price);
-										Log::debug($item_price_w_markup);
+										#Log::debug($item_price);
+										#Log::debug($item_price_w_markup);
 										$price->value = $item_price_w_markup;
 										
 										if($price->save()){
-											Log::debug('variant price created successfully');
+											#Log::debug('variant price created successfully');
 										}
 										else{
-											Log::debug('variant price failed to create');
+											Log::warning('variant price failed to create');
 										}
 									}
 									else{
 										$this->result['create_v_failed']++;
 										
-										Log::debug('variant '.$variant->sku.' failed to create');
+										Log::warning('variant '.$variant->sku.' failed to create');
 									}
 									
 									#Handle image

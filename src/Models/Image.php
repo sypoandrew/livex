@@ -85,7 +85,7 @@ class Image
 		
 		if($image_name){
 			$image_src = storage_path('app/image_library/library/'.$image_name);
-			Log::debug($product->model.' use library image - '.$image_src);
+			#Log::debug($product->model.' use library image - '.$image_src);
 		}
 		else{
 			#deduce image from the colour/type using the plain default images 
@@ -107,16 +107,16 @@ class Image
 			elseif($colour == 'Rose'){
 				$image_name = 'rose.png';
 			}
-			elseif($colour == 'White'){
+			elseif($colour == 'White' or $colour == 'Sweet White'){
 				$image_name = 'white.png';
 			}
 			
 			if($image_name){
 				$image_src = storage_path('app/image_library/defaults/'.$image_name);
-				Log::debug($product->model.' use default image - '.$image_src);
+				#Log::debug($product->model.' use default image - '.$image_src);
 			}
 			else{
-				Log::warning($product->model.' unable to create from default image - '.$wine_type.' | '.$colour);
+				#Log::warning($product->model.' unable to create from default image - '.$wine_type.' | '.$colour);
 			}
 		}
 		
