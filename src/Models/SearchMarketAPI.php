@@ -300,6 +300,16 @@ class SearchMarketAPI extends LivexAPI
 								#Log::debug("{$p->id} {$in_bond_item->sku} variant price updated successfully new price {$item_price_w_markup}");
 							}
 						}
+						else{
+							$this->result['update_failed']++;
+							
+							Log::warning('variant '.$variant->sku.' failed to find price');
+						}
+					}
+					else{
+						$this->result['update_failed']++;
+						
+						Log::warning('variant '.$variant->sku.' failed to find');
 					}
 				}
 				else{
