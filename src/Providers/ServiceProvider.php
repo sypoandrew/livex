@@ -47,8 +47,8 @@ class ServiceProvider extends ModuleServiceProvider
             $group->integer('margin_markup')->default(10);
             $group->integer('max_subtotal_in_basket')->default(3000);
             $group->string('image_report_send_to_email')->default('andrew@sypo.uk');
-            $group->string('image_report_send_from_email')->default('andrew@sypo.uk');
-            $group->string('image_report_send_from_name')->default('Andrew Tanner');
+            $group->string('image_report_send_from_email')->default('sales@vinquinn.com');
+            $group->string('image_report_send_from_name')->default('VinQuinn Sales');
         });
 		
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
