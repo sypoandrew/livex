@@ -184,7 +184,7 @@ class SearchMarketAPI extends LivexAPI
 			if(!count($market['depth']['offers']['offer'])){
 				#no active offers - skip this item
 				#dd($item);
-				$this->result['error']++;
+				#$this->result['error']++;
 				#Log::debug("ignore $sku no offers");
 				continue;
 			}
@@ -241,13 +241,8 @@ class SearchMarketAPI extends LivexAPI
 					$guid_tag = $p->tags()->where('tag_group_id', $tag_group->id)->first();
 					if($guid_tag != null){
 						#found tag - check if it's the same GUID
-						
-						#dd("found tag - check if it's the same GUID for $sku");
-						#dd("{$order_guid} == {$guid_tag->name}");
-						
 						if($order_guid == $guid_tag->name){
 							#it's the same - no action required
-							#dd("it's the same - no action required");
 						}
 						else{
 							#the current guid may be an older offer - let's update it
@@ -263,18 +258,13 @@ class SearchMarketAPI extends LivexAPI
 					}
 					else{
 						#no order guid tag - let's add it (this might be an old item that has come back into stock)
-						#dd('no guid found - add guid '.$order_guid.' for sku '.$sku);
-						
 						$tag = $this->findOrCreateTag($order_guid, $tag_group);
 						$p->tags()->syncWithoutDetaching($tag);
 					}
 					
-					#dd($p->id . ' - ' . $order_guid);
-					
-					
 					$minimumQty = ($minimumQty) ? $minimumQty : 0;
-					$p->variants()->update(['stock_level' => $market['depth']['offers']['offer'][0]['quantity'], 'minimum_quantity' => $minimumQty]);
-					$this->result['updated']++;
+					$price_updated = false;
+					$items_updated = $p->variants()->update(['stock_level' => $market['depth']['offers']['offer'][0]['quantity'], 'minimum_quantity' => $minimumQty]);
 					
 					$in_bond_item = $p->variants()->where('sku', $p->model.'IB')->first();
 					if($in_bond_item != null){
@@ -296,21 +286,101 @@ class SearchMarketAPI extends LivexAPI
 							#only update the price if we need to
 							if($item_price_w_markup != $price->value){
 								#dd([$item_price_w_markup, $price->value]);
-								$price->update(['value' => $item_price_w_markup]);
+								$price_updated = $price->update(['value' => $item_price_w_markup]);
 								#Log::debug("{$p->id} {$in_bond_item->sku} variant price updated successfully new price {$item_price_w_markup}");
 							}
 						}
 						else{
-							$this->result['update_failed']++;
+							#$this->result['update_failed']++;
+							#Log::warning('variant '.$in_bond_item->sku.' failed to find price');
 							
-							Log::warning('variant '.$variant->sku.' failed to find price');
+							#we shouldn't really get to here, but lets add the variant price
+							$price = new Price([
+								'variant_id' => $in_bond_item->id,
+								'product_tax_group_id' => $in_bond_item->product_tax_group_id,
+								'product_id' => $p->id,
+								'quantity' => 1,
+								'currency_code' => $this->currency->code,
+							]);
+							
+							$item_price = $market['depth']['offers']['offer'][0]['price'];
+							$item_price_w_markup = $this->calculate_item_price($item_price);
+							#Log::debug($item_price);
+							#Log::debug($item_price_w_markup);
+							$price->value = $item_price_w_markup;
+							
+							if($price->save()){
+								#Log::debug('variant price created successfully');
+							}
+							else{
+								$this->result['update_failed']++;
+								Log::warning('variant '.$in_bond_item->sku.' price failed to create');
+							}
 						}
 					}
 					else{
-						$this->result['update_failed']++;
+						#$this->result['update_failed']++;
+						#Log::warning('product '.$p->model.' failed to find bond variant');
 						
-						Log::warning('variant '.$variant->sku.' failed to find');
+						#we shouldn't really get to here, but lets create the in-bond variant
+						$variant = new Variant;
+						$variant->product_id = $p->id;
+						$variant->stock_level = $market['depth']['offers']['offer'][0]['quantity'];
+						$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
+						$variant->sku = $p->model.'IB';
+						$variant->product_tax_group_id = 2; #non-taxable
+						if($dutyPaid){
+							$variant->sku = $p->model.'DP';
+							$variant->product_tax_group_id = 1; #taxable
+						}
+						
+						if($variant->save()){
+							$this->result['created_v']++;
+							
+							#Log::debug('variant '.$variant->sku.' created successfully');
+							
+							#add the attribute for the variant Bond/Duty Paid
+							if($dutyPaid){
+								$variant->attributes()->syncWithoutDetaching([$this->attributes['Duty Paid'] => ['sort' => $variant->attributes()->count()]]);
+							}
+							else{
+								$variant->attributes()->syncWithoutDetaching([$this->attributes['Bond'] => ['sort' => $variant->attributes()->count()]]);
+							}
+							
+							if(!$variant->attributes()->count()){
+								Log::warning('variant attribute failed to create');
+							}
+							
+							#add the variant price
+							$price = new Price([
+								'variant_id' => $variant->id,
+								'product_tax_group_id' => $variant->product_tax_group_id,
+								'product_id' => $p->id,
+								'quantity' => 1,
+								'currency_code' => $this->currency->code,
+							]);
+							
+							$item_price = $market['depth']['offers']['offer'][0]['price'];
+							$item_price_w_markup = $this->calculate_item_price($item_price);
+							#Log::debug($item_price);
+							#Log::debug($item_price_w_markup);
+							$price->value = $item_price_w_markup;
+							
+							if($price->save()){
+								#Log::debug('variant price created successfully');
+							}
+							else{
+								$this->result['update_failed']++;
+								Log::warning('variant '.$variant->sku.' price failed to create');
+							}
+						}
+						else{
+							$this->result['update_failed']++;
+							Log::warning('variant '.$variant->sku.' failed to create');
+						}
 					}
+					
+					$this->result['updated']++;
 				}
 				else{
 					#not currently on system - create it
