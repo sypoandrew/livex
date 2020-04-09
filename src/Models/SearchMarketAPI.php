@@ -203,19 +203,19 @@ class SearchMarketAPI extends LivexAPI
 				}
 				
 				if($market['depth']['offers']['offer'][0]['price'] < 250){
-					$this->result['error']++;
+					#$this->result['error']++;
 					#Log::debug("ignore $sku due to price {$market['depth']['offers']['offer'][0]['price']}");
 					continue;
 				}
 				
 				if($minimumQty > 1){
-					$this->result['error']++;
+					#$this->result['error']++;
 					#Log::debug("ignore $sku due to minimumQty {$minimumQty}");
 					continue;
 				}
 				
 				if($dutyPaid){
-					$this->result['error']++;
+					#$this->result['error']++;
 					#Log::debug("ignore $sku due to dutyPaid {$dutyPaid}");
 					continue;
 				}
