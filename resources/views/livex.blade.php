@@ -14,12 +14,6 @@
     </div>
     @include('admin::partials.alerts')
 	
-	@if(session()->has('message'))
-		<div class="alert alert-success">
-			{{ session()->get('message') }}
-		</div>
-	@endif
-	
 	<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
 		@csrf
 		<div class="card mt-4 w-full">

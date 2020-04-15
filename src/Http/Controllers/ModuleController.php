@@ -29,6 +29,8 @@ class ModuleController extends Controller
      */
     public function update(Request $request)
     {
+		return redirect()->back()->with('message', 'Successfully uploaded image');
+		
 		$imageName = time().'.'.$request->file->getClientOriginalExtension();
 		$imageName = $request->file->getClientOriginalExtension();
         $request->file->move(storage_path('app/image_library'), $imageName);
@@ -66,7 +68,7 @@ class ModuleController extends Controller
     	$l = new SearchMarketAPI;
 		$l->process_all();
 		
-		return redirect()->back()->with('message', 'Successfully run the Search Market API.');
+		return redirect()->back()->with('message', 'Successfully run the Search Market API');
     }
     
 	/**
@@ -78,6 +80,6 @@ class ModuleController extends Controller
     {
     	\Artisan::call('sypo:livex:image');
 		
-		return redirect()->back()->with('message', 'Successfully run the Placeholder image routine.');
+		return redirect()->back()->with('message', 'Successfully run the placeholder image routine');
     }
 }
