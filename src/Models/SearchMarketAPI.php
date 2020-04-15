@@ -20,6 +20,7 @@ class SearchMarketAPI extends LivexAPI
 	protected $currency;
     protected $tag_groups;
     protected $attributes;
+	protected $categories = [3, 5]; #Buy Wine | Liv-Ex wines
     public $result = ['count' => 0, 'i' => 0, 'created_p' => 0, 'created_v' => 0, 'create_p_failed' => 0, 'create_v_failed' => 0, 'updated' => 0, 'update_failed' => 0, 'error' => 0];
     public $items;
     /**
@@ -29,6 +30,7 @@ class SearchMarketAPI extends LivexAPI
      */
     protected $products = ['created' => [], 'updated' => []];
     protected $processed_items;
+    protected $placeholder_image;
 
 
     /**
@@ -45,6 +47,7 @@ class SearchMarketAPI extends LivexAPI
 		foreach($attributes as $a){
 			$this->attributes[$a->name] = $a->id;
 		}
+		$this->placeholder_image = new PlaceholderImage;
 		
         parent::__construct();
 	}
@@ -76,8 +79,6 @@ class SearchMarketAPI extends LivexAPI
 		
 		#Log::debug(__FUNCTION__);
 		#Log::debug($status_code);
-		
-		$categories = [3, 5]; #Buy Wine | Liv-Ex wines
 		
 		#Log::debug($this->responsedata);
 		#dd($this->responsedata);
@@ -232,7 +233,7 @@ class SearchMarketAPI extends LivexAPI
 					if(!$p->allImages()->count()){
 						#Handle image placeholder
 						#Log::debug($sku.' no image - add placeholder');
-						$img->handlePlaceholderImage($p);
+						$this->placeholder_image->handlePlaceholderImage($p);
 					}
 					
 					#check for orderGUID tag
@@ -409,7 +410,7 @@ class SearchMarketAPI extends LivexAPI
 						$this->processed_items[] = $p->id;
 						
 						#add into categories
-						foreach($categories as $category_id){
+						foreach($this->categories as $category_id){
 							$p->categories()->syncWithoutDetaching([$category_id => ['sort' => $p->categories()->count()]]);
 						}
 						
@@ -537,7 +538,7 @@ class SearchMarketAPI extends LivexAPI
 						}
 						
 						#Handle image
-						$img->handlePlaceholderImage($p);
+						$this->placeholder_image->handlePlaceholderImage($p);
 					}
 					else{
 						$this->result['create_p_failed']++;
