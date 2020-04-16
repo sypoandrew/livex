@@ -145,8 +145,8 @@ class SearchMarketAPI extends LivexAPI
 		#force reindexing
 		$this->checkIndexing(true);
 		
-		Log::debug("Search API complete");
-		Log::debug("created products {$this->result['created_p']}/{$this->result['count']} | created variants {$this->result['created_v']}/{$this->result['count']} | failed products {$this->result['create_p_failed']}/{$this->result['count']} | failed variants {$this->result['create_v_failed']}/{$this->result['count']} | updated {$this->result['updated']}/{$this->result['count']} | update failed {$this->result['update_failed']}/{$this->result['count']} | ignored {$this->result['error']}/{$this->result['count']}");
+		#Log::debug("Search API complete");
+		#Log::debug("created products {$this->result['created_p']}/{$this->result['count']} | created variants {$this->result['created_v']}/{$this->result['count']} | failed products {$this->result['create_p_failed']}/{$this->result['count']} | failed variants {$this->result['create_v_failed']}/{$this->result['count']} | updated {$this->result['updated']}/{$this->result['count']} | update failed {$this->result['update_failed']}/{$this->result['count']} | ignored {$this->result['error']}/{$this->result['count']}");
     }
 
     /**
