@@ -23,6 +23,7 @@ class ServiceProvider extends ModuleServiceProvider
         'Sypo\Livex\Console\Commands\Heartbeat',
         'Sypo\Livex\Console\Commands\SearchMarket',
         'Sypo\Livex\Console\Commands\PlaceholderImage',
+        'Sypo\Livex\Console\Commands\UpdateDefaultImage',
     ];
 
     public function register(): void 

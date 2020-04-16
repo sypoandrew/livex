@@ -18,6 +18,8 @@ class Image
 {
     protected $library_files;
     protected $tag_groups;
+    protected $handle_default_fallback = true;
+    protected $clear_previous_image = false;
 
     /**
      * Create a new command instance.
@@ -87,7 +89,7 @@ class Image
 			$image_src = storage_path('app/image_library/library/'.$image_name);
 			#Log::debug($product->model.' use library image - '.$image_src);
 		}
-		else{
+		elseif($this->handle_default_fallback){
 			#deduce image from the colour/type using the plain default images 
 			
 			if($wine_type == 'Sparkling'){
@@ -121,6 +123,12 @@ class Image
 		}
 		
 		if($image_src !== null){
+			
+			#delete the current placeholder
+			if(!$this->handle_default_fallback and $this->clear_previous_image){
+				$product->allImages()->delete();
+			}
+			
 			$this->createOrUpdateImage($product, $image_src);
 		}
 	}
@@ -232,6 +240,24 @@ class Image
 			$products = Product::select('products.*')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id');
 		}
 		#Log::debug($products->toSql());
+		$products = $products->get();
+		
+		return $products;
+	}
+	
+	public function get_products_with_default_image($cutdown = false){
+		$this->handle_default_fallback = false;
+		$this->clear_previous_image = true;
+		
+		$sources = ['s/p/sparklingrose.png', 's/p/sparkling.png', 'f/o/fortified.png', 'r/e/red.png', 'r/o/rose.png', 'w/h/white.png'];
+		$products = Product::select('products.*')->join('product_images', 'product_images.product_id', '=', 'products.id')->join('images', 'images.id', '=', 'product_images.image_id');
+		
+		$products = $products->where(function ($q) use ($sources) {
+			foreach($sources as $s){
+				$q->orWhere('images.source', 'like', '%'.$s);
+			}
+		});
+		
 		$products = $products->get();
 		
 		return $products;
