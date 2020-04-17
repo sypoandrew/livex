@@ -88,7 +88,7 @@ class OrderStatusAPI extends LivexAPI
 			}
 			else{
 				Log::warning(json_encode($this->responsedata));
-				if($this->responsedata['error']['code'] == 'V056'){
+				if(isset($this->responsedata['error']) and $this->responsedata['error']['code'] == 'V056'){
 					#GUID is not available or does not exist - removed from Liv-ex so prevent customer from proceeding
 					$proceed_with_order = false;
 				}
