@@ -52,6 +52,7 @@ class ServiceProvider extends ModuleServiceProvider
             $group->string('image_report_send_from_name')->default('VinQuinn Sales');
         });
 		
+		$this->loadRoutesFrom(__DIR__ . '/../../routes/routes.php');
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 		$this->loadViewsFrom(__DIR__ . '/../../resources/views/', 'livex');
     }

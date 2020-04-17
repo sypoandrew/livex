@@ -4,9 +4,9 @@ namespace Sypo\Livex\Models;
 
 use Illuminate\Support\Facades\Log;
 use Aero\Cart\Models\Order;
-use Aero\Common\Models\AdditionalAttribute;
 use Sypo\Livex\Models\LivexAPI;
 use Sypo\Livex\Models\OrderStatusAPI;
+use Sypo\Livex\Models\Helper;
 
 class OrderAPI extends LivexAPI
 {
@@ -18,7 +18,7 @@ class OrderAPI extends LivexAPI
      */
     public function add(\Aero\Cart\Models\Order $order)
     {
-		$url = $this->base_url . 'exchange/v5/orders';
+		$url = $this->base_url . 'exchange/v6/orders';
 		
 		#get the item status from Liv-ex - this is in nice format to then handle the params to post the order
 		$order_status = new OrderStatusAPI;
@@ -27,7 +27,7 @@ class OrderAPI extends LivexAPI
 		
 		if(is_array($dets) and count($dets) > 0){
 			
-			Log::debug(__FUNCTION__);
+			#Log::debug(__FUNCTION__);
 			
 			$orderItems = $order->items()->get();
 			#dd($orderItems);
@@ -48,7 +48,7 @@ class OrderAPI extends LivexAPI
 							'currency' => 'GBP',
 							'price' => (int) $iteminfo['price'],
 							'quantity' => $item->quantity,
-							'merchantRef' => $order->id,
+							'merchantRef' => $order->reference,
 							'overrideFatFinger' => true, #Bypass system checks that prevent price keying errors.
 						];
 						
@@ -98,9 +98,9 @@ class OrderAPI extends LivexAPI
      */
     public function cancel(\Aero\Cart\Models\Order $order)
     {
-		$guids = $this->get_order_guids($order);
+		$guids = Helper::get_order_guids($order);
 		if($guids != null){
-			$url = $this->base_url . 'exchange/v4/orders';
+			$url = $this->base_url . 'exchange/v6/orders';
 			
 			foreach($guids as $guid_data){
 				
@@ -124,16 +124,5 @@ class OrderAPI extends LivexAPI
 		}
 		
 		return false;
-    }
-
-    /**
-     * Orders API – Delete order on Liv-ex if bid fails (after checkout payment)
-     *
-     * @param \Aero\Cart\Models\Order $order
-     * @return boolean
-     */
-    protected function get_order_guids(\Aero\Cart\Models\Order $order)
-    {
-		return AdditionalAttribute::where('attributable_type', 'order')->where('attributable_id', $order->id)->where('key', 'LIKE', 'livex_guid%')->get();
     }
 }

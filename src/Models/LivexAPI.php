@@ -22,7 +22,7 @@ class LivexAPI
     protected $count;
 
     /**
-     * Create a new command instance.
+     * Create a new class instance.
      *
      * @return void
      */

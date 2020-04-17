@@ -3,6 +3,7 @@
 namespace Sypo\Livex\Models;
 
 use Aero\Catalog\Models\TagGroup;
+use Aero\Common\Models\AdditionalAttribute;
 
 class Helper
 {
@@ -45,5 +46,28 @@ class Helper
 			return true;
 		}
 		return false;
+    }
+
+    /**
+     * Get all Liv-ex GUIDs for order
+     *
+     * @param \Aero\Cart\Models\Order $order
+     * @return \Aero\Common\Models\AdditionalAttribute
+     */
+    public static function get_order_guids(\Aero\Cart\Models\Order $order)
+    {
+		return AdditionalAttribute::where('attributable_type', 'order')->where('attributable_id', $order->id)->where('key', 'LIKE', 'livex_guid%')->get();
+    }
+
+    /**
+     * Get specific Liv-ex GUID for order
+     *
+     * @param \Aero\Cart\Models\Order $order
+     * @param $guid
+     * @return \Aero\Common\Models\AdditionalAttribute
+     */
+    public static function find_order_guid(\Aero\Cart\Models\Order $order, $guid)
+    {
+		return AdditionalAttribute::where('attributable_type', 'order')->where('attributable_id', $order->id)->where('key', 'LIKE', 'livex_guid%')->where('value', $guid)->first();
     }
 }

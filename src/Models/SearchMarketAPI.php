@@ -34,7 +34,7 @@ class SearchMarketAPI extends LivexAPI
 
 
     /**
-     * Create a new command instance.
+     * Create a new class instance.
      *
      * @return void
      */
