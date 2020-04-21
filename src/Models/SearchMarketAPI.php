@@ -31,6 +31,7 @@ class SearchMarketAPI extends LivexAPI
     protected $products = ['created' => [], 'updated' => []];
     protected $processed_items;
     protected $placeholder_image;
+    protected $error_code = 'search_market_api';
 
 
     /**
@@ -105,7 +106,17 @@ class SearchMarketAPI extends LivexAPI
 			} #end check for search response
 		}
 		else{
-			Log::warning(json_encode($this->responsedata));
+			#Log::warning(json_encode($this->responsedata));
+			
+			$err = new ErrorReport;
+			$err->message = json_encode($this->responsedata);
+			$err->code = $this->error_code;
+			$err->line = __LINE__;
+			$user = \Auth::user();
+			if($user){
+				$err->admin_id = $user->id;
+			}
+			$err->save();
 		}
     }
 
@@ -348,10 +359,6 @@ class SearchMarketAPI extends LivexAPI
 								$variant->attributes()->syncWithoutDetaching([$this->attributes['Bond'] => ['sort' => $variant->attributes()->count()]]);
 							}
 							
-							if(!$variant->attributes()->count()){
-								Log::warning('variant attribute failed to create');
-							}
-							
 							#add the variant price
 							$price = new Price([
 								'variant_id' => $variant->id,
@@ -505,10 +512,6 @@ class SearchMarketAPI extends LivexAPI
 								$variant->attributes()->syncWithoutDetaching([$this->attributes['Bond'] => ['sort' => $variant->attributes()->count()]]);
 							}
 							
-							if(!$variant->attributes()->count()){
-								Log::warning('variant attribute failed to create');
-							}
-							
 							#add the variant price
 							$price = new Price([
 								'variant_id' => $variant->id,
@@ -552,10 +555,30 @@ class SearchMarketAPI extends LivexAPI
 				#dd($p->id);
 			}
 			catch(ErrorException  $e){
-				Log::warning($e);
+				#Log::warning($e);
+				
+				$err = new ErrorReport;
+				$err->message = $e;
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$user = \Auth::user();
+				if($user){
+					$err->admin_id = $user->id;
+				}
+				$err->save();
 			}
 			catch(Exception $e){
-				Log::warning($e);
+				#Log::warning($e);
+				
+				$err = new ErrorReport;
+				$err->message = $e;
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$user = \Auth::user();
+				if($user){
+					$err->admin_id = $user->id;
+				}
+				$err->save();
 			}
 		} #end markets loop
     }

@@ -5,6 +5,7 @@ namespace Sypo\Livex\Models;
 use Illuminate\Support\Facades\Log;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use Sypo\Livex\Models\ErrorReport;
 
 class LivexAPI
 {
@@ -20,6 +21,7 @@ class LivexAPI
     protected $response;
     protected $responsedata;
     protected $count;
+    protected $error_code = 'livex_api';
 
     /**
      * Create a new class instance.
@@ -72,14 +74,18 @@ class LivexAPI
     }
 	
 	public function get_status_code(){
-		$status_code = $this->response->getStatusCode(); // 200
+		return $this->response->getStatusCode(); // 200
 	}
 	
 	public function get_content_type(){
-		$status_code = $this->response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
+		return $this->response->getHeaderLine('content-type'); // 'application/json; charset=utf8'
 	}
 	
 	public function set_responsedata(){
 		$this->responsedata = json_decode($this->response->getBody(), true);
+	}
+	
+	public function get_responsedata(){
+		return $this->responsedata;
 	}
 }

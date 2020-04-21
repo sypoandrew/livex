@@ -8,6 +8,9 @@ use Sypo\Livex\Models\LivexAPI;
 
 class OrderStatusAPI extends LivexAPI
 {
+    protected $error_code = 'order_status_api';
+    protected $order_guids;
+    
 	/**
      * Get Liv-ex Order GUIDs and line info from the order items
      *
@@ -15,7 +18,6 @@ class OrderStatusAPI extends LivexAPI
      * @return array
      */
     public function get_order_details($order_id){
-		$order_guids = [];
 		
 		$dets = Tag::select("tags.name", "order_items.sku", "order_items.quantity")
 		->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')
@@ -37,7 +39,7 @@ class OrderStatusAPI extends LivexAPI
      * @param boolean $return_result
      * @return boolean | mixed if $return_result
      */
-    public function call(\Aero\Cart\Models\Order $order, $return_result = false)
+    public function call(\Aero\Cart\Models\Order $order)
     {
 		$proceed_with_order = true;
 		
@@ -51,13 +53,13 @@ class OrderStatusAPI extends LivexAPI
 			$item_info[$det->name] = ['sku' => $det->sku, 'qty' => $det->quantity];
 		}
 		#dd($item_info);
-		$order_guids = array_keys($item_info);
-		#dd($order_guids);
-		Log::debug($order_guids);
+		$this->order_guids = array_keys($item_info);
+		#dd($this->order_guids);
+		#Log::debug($this->order_guids);
 		
-		if($order_guids){
+		if($this->order_guids){
 			$params = [
-				'orderGUID' => $order_guids,
+				'orderGUID' => $this->order_guids,
 			];
 
 			#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
@@ -69,10 +71,6 @@ class OrderStatusAPI extends LivexAPI
 			#Log::debug($this->responsedata);
 			if($this->responsedata['status'] == 'OK'){
 				#dd($this->responsedata);
-				if($return_result){
-					return $this->responsedata['orderStatus']['status'];
-				}
-				
 				foreach($this->responsedata['orderStatus']['status'] as $order_status){
 					#check if able to proceed with Aero order here...
 					if($order_status['orderStatus'] ==  'S' or $order_status['orderStatus'] ==  'T'){
@@ -87,7 +85,19 @@ class OrderStatusAPI extends LivexAPI
 				}
 			}
 			else{
-				Log::warning(json_encode($this->responsedata));
+				#Log::warning(json_encode($this->responsedata));
+				
+				$err = new ErrorReport;
+				$err->message = json_encode($this->responsedata);
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$err->order_id = $order->id;
+				$user = \Auth::user();
+				if($user){
+					$err->admin_id = $user->id;
+				}
+				$err->save();
+				
 				if(isset($this->responsedata['error']) and $this->responsedata['error']['code'] == 'V056'){
 					#GUID is not available or does not exist - removed from Liv-ex so prevent customer from proceeding
 					$proceed_with_order = false;
@@ -101,4 +111,8 @@ class OrderStatusAPI extends LivexAPI
 		#dd($proceed_with_order);
 		return $proceed_with_order;
     }
+	
+	public function get_order_guids(){
+		return $this->order_guids;
+	}
 }

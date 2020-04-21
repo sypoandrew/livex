@@ -23,11 +23,31 @@ class HeartbeatAPI extends LivexAPI
 				return true;
 			}
 			else{
-				Log::warning(json_encode($this->responsedata));
+				#Log::warning(json_encode($this->responsedata));
+				
+				$err = new ErrorReport;
+				$err->message = json_encode($this->responsedata);
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$user = \Auth::user();
+				if($user){
+					$err->admin_id = $user->id;
+				}
+				$err->save();
 			}
 		}
 		catch(RequestException $e) {
-			Log::warning($e);
+			#Log::warning($e);
+			
+			$err = new ErrorReport;
+			$err->message = $e;
+			$err->code = $this->error_code;
+			$err->line = __LINE__;
+			$user = \Auth::user();
+			if($user){
+				$err->admin_id = $user->id;
+			}
+			$err->save();
 		}
 		
 		return false;

@@ -10,6 +10,8 @@ use Sypo\Livex\Models\Helper;
 
 class OrderAPI extends LivexAPI
 {
+    protected $error_code = 'order_api';
+    
     /**
      * Orders API – send order to Liv-ex (after checkout payment)
      *
@@ -22,71 +24,134 @@ class OrderAPI extends LivexAPI
 		
 		#get the item status from Liv-ex - this is in nice format to then handle the params to post the order
 		$order_status = new OrderStatusAPI;
-		$dets = $order_status->call($order, true);
+		$proceed_with_order = $order_status->call($order, true);
+		$order_guids = $order_status->get_order_guids();
+		$response = $order_status->get_responsedata();
+		$dets = (isset($response['orderStatus']['status'])) ? $response['orderStatus']['status'] : array();
 		#dd($dets);
 		
-		if(is_array($dets) and count($dets) > 0){
-			
-			#Log::debug(__FUNCTION__);
-			
-			$orderItems = $order->items()->get();
-			#dd($orderItems);
-			
-			foreach($dets as $iteminfo){
-				foreach($orderItems as $item){
-					$lwin18 = $iteminfo['lwin'] . $iteminfo['vintage'] . $iteminfo['bottleInCase'] . $iteminfo['bottleSize'];
-					if(substr($item->sku, 0, -2) == 'LX'.$lwin18){
-						
-						#dd($item);
-						$order_det[] = [
-							'contractType' => $iteminfo['contractType'], #sib/sep/x
-							#'orderType' => $iteminfo['orderType'],
-							'orderType' => 'b', #bid
-							'orderStatus' => $iteminfo['orderStatus'],
-							'lwin' => $lwin18,
-							'vintage' => $iteminfo['vintage'],
-							'currency' => 'GBP',
-							'price' => (int) $iteminfo['price'],
-							'quantity' => $item->quantity,
-							'merchantRef' => $order->reference,
-							'overrideFatFinger' => true, #Bypass system checks that prevent price keying errors.
-						];
-						
-						#we post each order line separately so we can correctly store GUID against the SKU
-						
-						$params = ['orders' => $order_det];
-						#dd($params);
-						#dd(json_encode($params));
+		if($proceed_with_order){
+			if(is_array($dets) and count($dets) > 0){
+				
+				#Log::debug(__FUNCTION__);
+				
+				$orderItems = $order->items()->get();
+				#dd($orderItems);
+				
+				foreach($dets as $iteminfo){
+					foreach($orderItems as $item){
+						$lwin18 = $iteminfo['lwin'] . $iteminfo['vintage'] . $iteminfo['bottleInCase'] . $iteminfo['bottleSize'];
+						if(substr($item->sku, 0, -2) == 'LX'.$lwin18){
+							
+							#dd($item);
+							$order_det[] = [
+								'contractType' => $iteminfo['contractType'], #sib/sep/x
+								#'orderType' => $iteminfo['orderType'],
+								'orderType' => 'b', #bid
+								'orderStatus' => $iteminfo['orderStatus'],
+								'lwin' => $lwin18,
+								'vintage' => $iteminfo['vintage'],
+								'currency' => 'GBP',
+								'price' => (int) $iteminfo['price'],
+								'quantity' => $item->quantity,
+								'merchantRef' => $order->reference,
+								'overrideFatFinger' => true, #Bypass system checks that prevent price keying errors.
+							];
+							
+							#we post each order line separately so we can correctly store GUID against the SKU
+							
+							$params = ['orders' => $order_det];
+							#dd($params);
+							#dd(json_encode($params));
 
-						#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
-						$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
-						$this->set_responsedata();
+							#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
+							$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
+							$this->set_responsedata();
 
-						#dd($this->responsedata);
-						#Log::debug($this->responsedata);
-						if($this->responsedata['status'] == 'OK'){
-							foreach($this->responsedata['orders']['order'] as $order_data){
-								if($order_data['orderGUID']){
-									$order->additional('livex_guid_'.$item->sku, $order_data['orderGUID']);
+							#dd($this->responsedata);
+							#Log::debug($this->responsedata);
+							if($this->responsedata['status'] == 'OK'){
+								foreach($this->responsedata['orders']['order'] as $order_data){
+									if($order_data['orderGUID']){
+										$order->additional('livex_guid_'.$item->sku, $order_data['orderGUID']);
+									}
+									
+									if($order_data['errors']){
+										#Log::warning(json_encode($this->responsedata));
+										
+										$err = new ErrorReport;
+										$err->message = json_encode($this->responsedata);
+										$err->code = $this->error_code;
+										$err->line = __LINE__;
+										$err->order_id = $order->id;
+										$user = \Auth::user();
+										if($user){
+											$err->admin_id = $user->id;
+										}
+										$err->save();
+									}
 								}
+							}
+							else{
+								#Log::warning(json_encode($this->responsedata));
 								
-								if($order_data['errors']){
-									Log::warning(json_encode($this->responsedata));
+								$err = new ErrorReport;
+								$err->message = json_encode($this->responsedata);
+								$err->code = $this->error_code;
+								$err->line = __LINE__;
+								$err->order_id = $order->id;
+								$user = \Auth::user();
+								if($user){
+									$err->admin_id = $user->id;
 								}
+								$err->save();
 							}
 						}
 						else{
-							Log::warning(json_encode($this->responsedata));
+							#Log::warning('unable to post order line '.$item->sku.' to Liv-ex');
+							
+							$err = new ErrorReport;
+							$err->message = 'Unable to post order line '.$item->sku.' to Liv-ex.';
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$user = \Auth::user();
+							if($user){
+								$err->admin_id = $user->id;
+							}
+							$err->save();
 						}
-					}
-					else{
-						Log::warning('unable to post order line '.$item->sku.' to Livex');
 					}
 				}
 			}
+			else{
+				#Log::warning('Unable to post order '.$order->id.' to Liv-ex. No items in order qualify.');
+				
+				$err = new ErrorReport;
+				$err->message = 'Unable to post order '.$order->id.' to Liv-ex. No items in order qualify.';
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$err->order_id = $order->id;
+				$user = \Auth::user();
+				if($user){
+					$err->admin_id = $user->id;
+				}
+				$err->save();
+			}
 		}
-		else{
-			Log::warning('unable to post order '.$order->id.' to Livex');
+		elseif($order_guids){
+			#Log::warning('Unable to post order '.$order->id.' to Liv-ex');
+			
+			$err = new ErrorReport;
+			$err->message = 'Unable to post order '.$order->id.' to Liv-ex. This may be issue with items failing pre-order checks, or an issue with the OrderStatusAPI call as there are qualifying items. Manual check required.';
+			$err->code = $this->error_code;
+			$err->line = __LINE__;
+			$err->order_id = $order->id;
+			$user = \Auth::user();
+			if($user){
+				$err->admin_id = $user->id;
+			}
+			$err->save();
 		}
     }
 
@@ -118,7 +183,18 @@ class OrderAPI extends LivexAPI
 					return true;
 				}
 				else{
-					Log::warning(json_encode($this->responsedata));
+					#Log::warning(json_encode($this->responsedata));
+					
+					$err = new ErrorReport;
+					$err->message = json_encode($this->responsedata);
+					$err->code = $this->error_code;
+					$err->line = __LINE__;
+					$err->order_id = $order->id;
+					$user = \Auth::user();
+					if($user){
+						$err->admin_id = $user->id;
+					}
+					$err->save();
 				}
 			}
 		}
