@@ -29,10 +29,6 @@ class HeartbeatAPI extends LivexAPI
 				$err->message = json_encode($this->responsedata);
 				$err->code = $this->error_code;
 				$err->line = __LINE__;
-				$user = \Auth::user();
-				if($user){
-					$err->admin_id = $user->id;
-				}
 				$err->save();
 			}
 		}
@@ -43,10 +39,6 @@ class HeartbeatAPI extends LivexAPI
 			$err->message = $e;
 			$err->code = $this->error_code;
 			$err->line = __LINE__;
-			$user = \Auth::user();
-			if($user){
-				$err->admin_id = $user->id;
-			}
 			$err->save();
 		}
 		

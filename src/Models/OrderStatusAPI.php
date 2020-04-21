@@ -92,10 +92,6 @@ class OrderStatusAPI extends LivexAPI
 				$err->code = $this->error_code;
 				$err->line = __LINE__;
 				$err->order_id = $order->id;
-				$user = \Auth::user();
-				if($user){
-					$err->admin_id = $user->id;
-				}
 				$err->save();
 				
 				if(isset($this->responsedata['error']) and $this->responsedata['error']['code'] == 'V056'){
