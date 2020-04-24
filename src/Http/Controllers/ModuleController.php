@@ -82,4 +82,26 @@ class ModuleController extends Controller
 		
 		return redirect()->back()->with('message', 'Successfully run the placeholder image routine');
     }
+    
+	/**
+     * Manually run the Replace default image routine
+     *
+     * @return void
+     */
+    public function replace_default_image(Request $request)
+    {
+    	\Artisan::call('sypo:livex:imageupdate');
+		
+		return redirect()->back()->with('message', 'Successfully run the replace default image routine');
+    }
+    
+	/**
+     * Download the image report file
+     *
+     * @return void
+     */
+    public function download_image_report(Request $request)
+    {
+        return response()->download(storage_path('app/'. $request->input('filename')));
+    }
 }

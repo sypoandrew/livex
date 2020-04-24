@@ -12,7 +12,6 @@ use Sypo\Livex\Models\Helper;
 use Sypo\Livex\Models\EmailNotification;
 use Mail;
 use Sypo\Livex\Mail\ImageReportMail;
-use Carbon\Carbon;
 
 class Image
 {
@@ -20,6 +19,8 @@ class Image
     protected $tag_groups;
     protected $handle_default_fallback = true;
     protected $clear_previous_image = false;
+    protected $email_code;
+    protected $image_report_rows;
 
     /**
      * Create a new command instance.
@@ -233,24 +234,41 @@ class Image
         }
     }
 	
-	public function get_products_without_images($cutdown = false){
-		if($cutdown){
-			$products = Product::select('products.model', 'products.name')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id');
+	public function get_products_without_images($report_version = false){
+		$lang = config('app.locale');
+		if($report_version){
+			$products = Product::select('products.*')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id')->get();
+			$collection = collect();
+			foreach($products as $product){
+				$wine_type = $product->tags()->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')->where("tag_groups.name->{$lang}", 'Wine Type')->first();
+				$colour = $product->tags()->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')->where("tag_groups.name->{$lang}", 'Colour')->first();
+				
+				$collection->push([
+				'id' => $product->id, 
+				'model' => $product->model, 
+				'name' => $product->name, 
+				'wine_type' => ($wine_type) ? $wine_type->name : '',
+				'colour' =>  ($colour) ? $colour->name : ''
+				]);
+			}
+			return $collection;
 		} else{
-			$products = Product::select('products.*')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id');
+			return Product::select('products.*')->leftJoin('product_images', 'product_images.product_id', '=', 'products.id')->whereNull('product_images.product_id')->get();
 		}
-		#Log::debug($products->toSql());
-		$products = $products->get();
-		
-		return $products;
 	}
 	
-	public function get_products_with_default_image($cutdown = false){
+	public function get_products_with_default_image($report_version = false){
+		$lang = config('app.locale');
 		$this->handle_default_fallback = false;
 		$this->clear_previous_image = true;
 		
 		$sources = ['s/p/sparklingrose.png', 's/p/sparkling.png', 'f/o/fortified.png', 'r/e/red.png', 'r/o/rose.png', 'w/h/white.png'];
-		$products = Product::select('products.*')->join('product_images', 'product_images.product_id', '=', 'products.id')->join('images', 'images.id', '=', 'product_images.image_id');
+		
+		if($report_version){
+			$products = Product::select('products.id', 'products.model', "products.name->{$lang} AS product_name")->join('product_images', 'product_images.product_id', '=', 'products.id')->join('images', 'images.id', '=', 'product_images.image_id');
+		} else{
+			$products = Product::select('products.*')->join('product_images', 'product_images.product_id', '=', 'products.id')->join('images', 'images.id', '=', 'product_images.image_id');
+		}
 		
 		$products = $products->where(function ($q) use ($sources) {
 			foreach($sources as $s){
@@ -259,19 +277,41 @@ class Image
 		});
 		
 		$products = $products->get();
-		
 		return $products;
 	}
 	
 	public function send_email_report(){
+		$products = false;
+		if($this->handle_default_fallback){
+			$this->email_code = 'missing_image_report';
+			#create report on items with missing images
+			$products = $this->get_products_without_images(true);
+		}
+		else{
+			$this->email_code = 'replace_default_image_report';
+			#create report on items with default images
+			$products = $this->get_products_with_default_image(true);
+		}
+		$this->image_report_rows = $products->toArray();
+		$this->saveCsv();
 		
 		#only send the email notification once a day
-		$report_sent = EmailNotification::where('code', 'missing_image_report')->whereDate('created_at', Carbon::today())->count();
+		$report_sent = EmailNotification::where('code', $this->email_code)->whereDate('created_at', \Carbon\Carbon::today())->count();
 		if(!$report_sent){
-			#send report on items with missing products
-			$products = $this->get_products_without_images(true);
-			$email = new ImageReportMail($products);
-			Mail::send($email);
+			if($products){
+				$email = new ImageReportMail($products, $this->email_code);
+				Mail::send($email);
+			}
 		}
 	}
+
+    /**
+     * @throws \League\Csv\CannotInsertRecord
+     */
+    protected function saveCsv(): void
+    {
+        $csv = \League\Csv\Writer::createFromPath(storage_path("app/{$this->email_code}.csv"), 'w+');
+        $csv->insertOne(array_keys(\Illuminate\Support\Arr::first($this->image_report_rows)));
+        $csv->insertAll($this->image_report_rows);
+    }
 }

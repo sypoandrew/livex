@@ -16,15 +16,17 @@ class ImageReportMail extends Mailable
     use Queueable, SerializesModels;
 	
     public $products;
+    public $code;
 
     /**
      * Create a new message instance.
      *
      * @return void
      */
-    public function __construct($products)
+    public function __construct($products, $code)
     {
         $this->products = $products;
+        $this->code = $code;
     }
 
     /**
@@ -39,14 +41,14 @@ class ImageReportMail extends Mailable
 		if($user){
 			$notify->admin_id = $user->id;
 		}
-		$notify->code = 'missing_image_report';
+		$notify->code = $this->code;
 		$notify->save();
 		
 		$this
-		->subject('VinQuinn missing image report')
+		->subject('VinQuinn '.str_replace('_', ' ', $this->code))
 		->to(setting('Livex.image_report_send_to_email'))
 		->from(setting('Livex.image_report_send_from_email'), setting('Livex.image_report_send_from_name'))
-		->markdown('livex::emails.imagereport');
+		->markdown('livex::emails.'.$this->code);
 		
 		return $this;
     }

@@ -1,10 +1,8 @@
 <?php
-
 namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
 use Sypo\Livex\Models\Image;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class UpdateDefaultImage extends Command
@@ -50,6 +48,8 @@ class UpdateDefaultImage extends Command
 			$l->handlePlaceholderImage($product);
 			$progressBar->advance();
 		}
+		
+		$l->send_email_report();
 		
 		$progressBar->finish();
     }

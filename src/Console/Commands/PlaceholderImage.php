@@ -1,10 +1,8 @@
 <?php
-
 namespace Sypo\Livex\Console\Commands;
 
 use Illuminate\Console\Command;
 use Sypo\Livex\Models\Image;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\Console\Helper\ProgressBar;
 
 class PlaceholderImage extends Command
@@ -47,7 +45,6 @@ class PlaceholderImage extends Command
 		
 		foreach($products as $product){
 			#Handle image placeholder
-			#Log::debug($product->model.' - add placeholder image');
 			$l->handlePlaceholderImage($product);
 			$progressBar->advance();
 		}
