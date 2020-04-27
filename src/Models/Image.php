@@ -247,6 +247,7 @@ class Image
 				'id' => $product->id, 
 				'model' => $product->model, 
 				'name' => $product->name, 
+				'active' => $product->active, 
 				'wine_type' => ($wine_type) ? $wine_type->name : '',
 				'colour' =>  ($colour) ? $colour->name : ''
 				]);
@@ -265,7 +266,7 @@ class Image
 		$sources = ['s/p/sparklingrose.png', 's/p/sparkling.png', 'f/o/fortified.png', 'r/e/red.png', 'r/o/rose.png', 'w/h/white.png'];
 		
 		if($report_version){
-			$products = Product::select('products.id', 'products.model', "products.name->{$lang} AS product_name")->join('product_images', 'product_images.product_id', '=', 'products.id')->join('images', 'images.id', '=', 'product_images.image_id');
+			$products = Product::select('products.id', 'products.model', "products.name->{$lang} AS product_name", 'products.active')->join('product_images', 'product_images.product_id', '=', 'products.id')->join('images', 'images.id', '=', 'product_images.image_id');
 		} else{
 			$products = Product::select('products.*')->join('product_images', 'product_images.product_id', '=', 'products.id')->join('images', 'images.id', '=', 'product_images.image_id');
 		}

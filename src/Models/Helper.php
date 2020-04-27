@@ -15,7 +15,8 @@ class Helper
     public static function get_tag_groups()
     {
 		$language = config('app.locale');
-		$groups = TagGroup::whereIn("name->{$language}", ['Bottle Size', 'Case Size', 'Colour', 'Country', 'Region', 'Sub Region', 'Vintage', 'Wine Type', 'Burgundy Cru', 'Liv-Ex Order GUID'])->get();
+		#$groups = TagGroup::whereIn("name->{$language}", ['Bottle Size', 'Case Size', 'Colour', 'Country', 'Region', 'Sub Region', 'Vintage', 'Wine Type', 'Burgundy Cru', 'Liv-Ex Order GUID'])->get();
+		$groups = TagGroup::get();
 		$tag_groups = [];
 		foreach($groups as $g){
 			$tag_groups[$g->name] = $g;

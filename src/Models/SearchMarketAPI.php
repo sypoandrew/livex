@@ -99,7 +99,7 @@ class SearchMarketAPI extends LivexAPI
 			$img = new PlaceholderImage;
 			
 			if(isset($this->responsedata['searchResponse'])){
-				#Log::debug($this->responsedata['searchResponse']);
+				Log::debug($this->responsedata['searchResponse']);
 				$this->result['count'] = count($this->responsedata['searchResponse']);
 				$this->items = $this->responsedata['searchResponse'];
 				
@@ -198,7 +198,9 @@ class SearchMarketAPI extends LivexAPI
 			}
 			$sku = $market['lwin']; #LWIN18
 			$dutyPaid = $market['special']['dutyPaid']; #true/false
+			$contractType = $market['contractType']; #SIB/SEP/X
 			$minimumQty = $market['special']['minimumQty'];
+			$deliveryPeriod = $market['special']['deliveryPeriod'];
 			$isCompetitive = $market['depth']['offers']['offer'][0]['isCompetitive'];
 			
 			$burgundy_cru = '';
@@ -245,36 +247,24 @@ class SearchMarketAPI extends LivexAPI
 					
 					#check for orderGUID tag
 					$order_guid = $market['depth']['offers']['offer'][0]['orderGUID'];
-					$tag_group = $this->tag_groups['Liv-Ex Order GUID'];
-					$guid_tag = $p->tags()->where('tag_group_id', $tag_group->id)->first();
-					if($guid_tag != null){
-						#found tag - check if it's the same GUID
-						if($order_guid == $guid_tag->name){
-							#it's the same - no action required
-						}
-						else{
-							#the current guid may be an older offer - let's update it
-							#dd('current guid found but different - update guid to '.$order_guid.' for sku '.$sku);
-							
-							#delete the current one(s)
-							$p->tags()->where('tag_group_id', $tag_group->id)->delete();
-							
-							#add the new guid
-							$tag = $this->findOrCreateTag($order_guid, $tag_group);
-							$p->tags()->syncWithoutDetaching($tag);
-						}
-					}
-					else{
-						#no order guid tag - let's add it (this might be an old item that has come back into stock)
-						$tag = $this->findOrCreateTag($order_guid, $tag_group);
-						$p->tags()->syncWithoutDetaching($tag);
-					}
+					
+					#check for orderGUID tag and replace if required
+					$this->addOrReplaceTag($p, $this->tag_groups['Liv-Ex Order GUID'], $order_guid);
+					$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod));
 					
 					$minimumQty = ($minimumQty) ? $minimumQty : 0;
 					$price_updated = false;
 					$items_updated = $p->variants()->update(['stock_level' => $market['depth']['offers']['offer'][0]['quantity'], 'minimum_quantity' => $minimumQty]);
 					
-					$in_bond_item = $p->variants()->where('sku', $p->model.'IB')->first();
+					$in_bond_item = null;
+					
+					if($contractType == 'SEP'){
+						$in_bond_item = $p->variants()->where('sku', $p->model.'EP')->first();
+					}
+					else{
+						$in_bond_item = $p->variants()->where('sku', $p->model.'IB')->first();
+					}
+					
 					if($in_bond_item != null){
 						
 						$price = $in_bond_item->prices()->where('quantity', 1)->first();
@@ -337,6 +327,9 @@ class SearchMarketAPI extends LivexAPI
 						$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
 						$variant->sku = $p->model.'IB';
 						$variant->product_tax_group_id = 2; #non-taxable
+						if($contractType == 'SEP'){
+							$variant->sku = $p->model.'EP'; #en-primeur
+						}
 						if($dutyPaid){
 							$variant->sku = $p->model.'DP';
 							$variant->product_tax_group_id = 1; #taxable
@@ -491,6 +484,9 @@ class SearchMarketAPI extends LivexAPI
 						$variant->minimum_quantity = ($minimumQty) ? $minimumQty : 0;
 						$variant->sku = $p->model.'IB';
 						$variant->product_tax_group_id = 2; #non-taxable
+						if($contractType == 'SEP'){
+							$variant->sku = $p->model.'EP'; #en-primeur
+						}
 						if($dutyPaid){
 							$variant->sku = $p->model.'DP';
 							$variant->product_tax_group_id = 1; #taxable
@@ -650,6 +646,56 @@ class SearchMarketAPI extends LivexAPI
 
         return $tag;
     }
+
+    /**
+     * @param int $deliveryPeriod
+     * 
+     * @return string
+     */
+	protected function handle_availability_tag($deliveryPeriod){
+		if($deliveryPeriod == 0){
+			return 'In stock';
+		}
+		elseif($deliveryPeriod == 1){
+			return '1 week';
+		}
+		else{
+			return $deliveryPeriod . ' weeks';
+		}
+	}
+
+    /**
+     * @param \Aero\Catalog\Models\Product $p
+     * @param \Aero\Catalog\Models\TagGroup $group
+     * @param string $tag_value
+     * 
+     * @return \Aero\Catalog\Models\Tag
+     */
+	protected function addOrReplaceTag(\Aero\Catalog\Models\Product $p, \Aero\Catalog\Models\TagGroup $group, $tag_value){
+		
+		$tag = $p->tags()->where('tag_group_id', $group->id)->first();
+		if($tag != null){
+			#found tag - check if it's the same tag
+			if($tag_value == $tag->name){
+				#it's the same - no action required
+			}
+			else{
+				#delete the current one
+				$p->tags()->where('tag_group_id', $group->id)->delete();
+				
+				#add the new tag
+				$tag = $this->findOrCreateTag($tag_value, $group);
+				$p->tags()->syncWithoutDetaching($tag);
+			}
+		}
+		else{
+			#no current tag - let's add it
+			$tag = $this->findOrCreateTag($tag_value, $group);
+			$p->tags()->syncWithoutDetaching($tag);
+		}
+		
+		return $tag;
+	}
 
     /**
      * @param string $bottle_size
