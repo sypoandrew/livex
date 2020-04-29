@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Aero\Admin\Facades\Admin;
 use Aero\Admin\Http\Controllers\Controller;
 use Sypo\Livex\Models\SearchMarketAPI;
+use Sypo\Livex\Models\ErrorReport;
 
 class ModuleController extends Controller
 {
@@ -19,7 +20,8 @@ class ModuleController extends Controller
      */
     public function index(Request $request)
     {
-        return view('livex::livex', $this->data);
+        $livex_errors = ErrorReport::get();
+        return view('livex::livex', ['livex_errors' => $livex_errors]);
     }
     
 	/**
