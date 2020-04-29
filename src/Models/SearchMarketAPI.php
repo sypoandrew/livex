@@ -13,7 +13,7 @@ use Aero\Catalog\Models\Variant;
 use Aero\Common\Models\Currency;
 use Sypo\Livex\Models\LivexAPI;
 use Sypo\Livex\Models\Helper;
-use Sypo\Livex\Models\Image as PlaceholderImage;
+use Sypo\Image\Models\Image as PlaceholderImage;
 
 class SearchMarketAPI extends LivexAPI
 {

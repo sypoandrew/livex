@@ -29,13 +29,7 @@ class ModuleController extends Controller
      */
     public function update(Request $request)
     {
-		return redirect()->back()->with('message', 'Successfully uploaded image');
-		
-		$imageName = time().'.'.$request->file->getClientOriginalExtension();
-		$imageName = $request->file->getClientOriginalExtension();
-        $request->file->move(storage_path('app/image_library'), $imageName);
-         
-    	return response()->json(['success'=>'You have successfully upload file.']);
+		return redirect()->back()->with('message', 'Successfully updated settings');
 		
 		
 		/* $res = ['success'=>false,'data'=>false,'error'=>[]];
@@ -69,39 +63,5 @@ class ModuleController extends Controller
 		$l->process_all();
 		
 		return redirect()->back()->with('message', 'Successfully run the Search Market API');
-    }
-    
-	/**
-     * Manually run the Placeholder image
-     *
-     * @return void
-     */
-    public function placeholder_image(Request $request)
-    {
-    	\Artisan::call('sypo:livex:image');
-		
-		return redirect()->back()->with('message', 'Successfully run the placeholder image routine');
-    }
-    
-	/**
-     * Manually run the Replace default image routine
-     *
-     * @return void
-     */
-    public function replace_default_image(Request $request)
-    {
-    	\Artisan::call('sypo:livex:imageupdate');
-		
-		return redirect()->back()->with('message', 'Successfully run the replace default image routine');
-    }
-    
-	/**
-     * Download the image report file
-     *
-     * @return void
-     */
-    public function download_image_report(Request $request)
-    {
-        return response()->download(storage_path('app/'. $request->input('filename')));
     }
 }

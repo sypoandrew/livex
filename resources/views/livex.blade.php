@@ -44,25 +44,6 @@
 		<div class="card mt-4 p-4 w-full flex flex-wrap"><p>Please contact SYPO to update these settings.</p></div>
 	</form>
 	
-	<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
-		@csrf
-		<div class="card mt-4 w-full">
-			<h3>Add images to Product Library</h3>
-			<p>TBC</p>
-			<!--
-			<template>
-			<div id="app">
-				<vue-dropzone id="drop1" :options="dropOptions"></vue-dropzone>
-			</div>
-			</template>
-			-->
-			
-			
-		</div>
-		
-		<div class="card mt-4 p-4 w-full flex flex-wrap"><button type="submit" class="btn btn-secondary">Save</button> </div>
-	</form>
-	
 	
 	<form action="{{ route('admin.modules.livex.search_market') }}" method="get" class="flex flex-wrap mb-8">
 		@csrf
@@ -73,56 +54,6 @@
 		</div>
 		<div class="card mt-4 p-4 w-full flex flex-wrap">
 			<button type="submit" class="btn btn-secondary">Process</button>
-		</div>
-	</form>
-	
-	<form action="{{ route('admin.modules.livex.placeholder_image') }}" method="get" class="flex flex-wrap mb-8">
-		@csrf
-		
-		<div class="card mt-4 w-full">
-			<h3>Create Placeholder Images</h3>
-			<p><strong>NOTE:</strong> this is run via an automated routine every X minutes. Press the button below to run the routine manually.</p>
-			<p><strong>NOTE:</strong> an email will be sent after the routine is complete, with any products still missing images reported on. This is usually due to missing colour, wine type data.</p>
-		</div>
-		<div class="card mt-4 p-4 w-full flex flex-wrap">
-			<button type="submit" class="btn btn-secondary">Process</button>
-		</div>
-	</form>
-	
-	<form action="{{ route('admin.modules.livex.download_image_report') }}" method="get" class="flex flex-wrap mb-8">
-		@csrf
-		<input type="hidden" name="filename" value="missing_image_report.csv" />
-		<div class="card mt-4 w-full">
-			<h3>Report Download - Create Placeholder Images</h3>
-			<p>Download report for images that require attention.</p>
-		</div>
-		<div class="card mt-4 p-4 w-full flex flex-wrap">
-			<button type="submit" class="btn btn-secondary">Download Report</button>
-		</div>
-	</form>
-	
-	<form action="{{ route('admin.modules.livex.replace_default_image') }}" method="get" class="flex flex-wrap mb-8">
-		@csrf
-		
-		<div class="card mt-4 w-full">
-			<h3>Replace Placeholder Images With Library Images</h3>
-			<p><strong>NOTE:</strong> this is run via an automated routine every X minutes. Press the button below to run the routine manually.</p>
-			<p><strong>NOTE:</strong> an email will be sent after the routine is complete.</p>
-		</div>
-		<div class="card mt-4 p-4 w-full flex flex-wrap">
-			<button type="submit" class="btn btn-secondary">Process</button>
-		</div>
-	</form>
-	
-	<form action="{{ route('admin.modules.livex.download_image_report') }}" method="get" class="flex flex-wrap mb-8">
-		@csrf
-		<input type="hidden" name="filename" value="replace_default_image_report.csv" />
-		<div class="card mt-4 w-full">
-			<h3>Report Download - Replace Placeholder Images With Library Images</h3>
-			<p>Download report for images that require library image adding.</p>
-		</div>
-		<div class="card mt-4 p-4 w-full flex flex-wrap">
-			<button type="submit" class="btn btn-secondary">Download Report</button>
 		</div>
 	</form>
 	
