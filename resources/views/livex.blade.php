@@ -13,7 +13,7 @@
 	<form action="{{ route('admin.modules.livex') }}" method="post" class="flex flex-wrap">
 		@csrf
 		<div class="card mt-4 w-full">
-			<h3>Liv-Ex API settings for Aero Commerce</h3>
+			<h3>Settings</h3>
 			<div class="mt-4 w-full">
 			<label for="enabled" class="block">
 			<label class="checkbox">
@@ -27,21 +27,32 @@
 			</label>
 			</div>
 			<div class="mt-4 w-full">
-			<label for="enabled" class="block">Stock Threshold</label>
+			<label for="enabled" class="block">Product import - Stock threshold</label>
 			<input type="text" id="stock_threshold" name="stock_threshold" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.stock_threshold') }}">
 			</div>
 			<div class="mt-4 w-full">
-			<label for="enabled" class="block">Price Threshold</label>
-			<input type="text" id="price_threshold" name="price_threshold" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.price_threshold') }}">
+			<label for="enabled" class="block">Product import - Lower price threshold</label>
+			<input type="text" id="lower_price_threshold" name="lower_price_threshold" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.lower_price_threshold') }}">
 			</div>
 			<div class="mt-4 w-full">
-			<label for="enabled" class="block">Margin Markup %</label>
+			<label for="enabled" class="block">Product import - Upper price threshold</label>
+			<input type="text" id="upper_price_threshold" name="upper_price_threshold" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.upper_price_threshold') }}">
+			</div>
+			<div class="mt-4 w-full">
+			<label for="enabled" class="block">Product import - Lower price threshold extra margin markup &pound;</label>
+			<input type="text" id="lower_price_threshold_extra_margin_markup" name="lower_price_threshold_extra_margin_markup" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.lower_price_threshold_extra_margin_markup') }}">
+			</div>
+			<div class="mt-4 w-full">
+			<label for="enabled" class="block">Product import - Margin markup %</label>
 			<input type="text" id="margin_markup" name="margin_markup" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.margin_markup') }}">
+			</div>
+			<div class="mt-4 w-full">
+			<label for="enabled" class="block">Order subtotal threshold to prevent cc option in checkout, and don&#39;t auto send order to Liv-Ex API</label>
+			<input type="text" id="max_subtotal_in_basket" name="max_subtotal_in_basket" autocomplete="off" required="required" class="w-full " value="{{ setting('Livex.max_subtotal_in_basket') }}">
 			</div>
 		</div>
 		
-		<!--<div class="card mt-4 p-4 w-full flex flex-wrap"><button type="submit" class="btn btn-secondary">Save</button> </div>-->
-		<div class="card mt-4 p-4 w-full flex flex-wrap"><p>Please contact SYPO to update these settings.</p></div>
+		<div class="card mt-4 p-4 w-full flex flex-wrap"><button type="submit" class="btn btn-secondary">Save</button> </div>
 	</form>
 	
 	

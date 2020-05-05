@@ -3,11 +3,11 @@
 namespace Sypo\Livex\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Aero\Admin\Facades\Admin;
 use Aero\Admin\Http\Controllers\Controller;
 use Sypo\Livex\Models\SearchMarketAPI;
 use Sypo\Livex\Models\ErrorReport;
+use Spatie\Valuestore\Valuestore;
 
 class ModuleController extends Controller
 {
@@ -31,27 +31,35 @@ class ModuleController extends Controller
      */
     public function update(Request $request)
     {
-		return redirect()->back()->with('message', 'Successfully updated settings');
-		
-		
-		/* $res = ['success'=>false,'data'=>false,'error'=>[]];
-		
-        $validator = \Validator::make($request->all(), [
-            'stock_threshold' => 'required|int',
-            'price_threshold' => 'required|int',
-            'margin_markup' => 'required|int',
-        ]);
-		
-		if($validator->fails()){
-			$res['error'] = $validator->errors()->all();
-			return response()->json($res);
+		if($request->isMethod('post')) {
+			$validator = \Validator::make($request->all(), [
+				'stock_threshold' => 'required|int',
+				'lower_price_threshold' => 'required|int',
+				'upper_price_threshold' => 'required|int',
+				'lower_price_threshold_extra_margin_markup' => 'required|int',
+				'margin_markup' => 'required|int',
+				'max_subtotal_in_basket' => 'required|int',
+			]);
+			
+			if($validator->fails()){
+				return redirect()->back()->withErrors($validator->errors()->all());
+			}
+			
+			$valuestore = Valuestore::make(storage_path('app/settings/Livex.json'));
+			$valuestore->put('enabled', (int) $request->input('enabled'));
+			$valuestore->put('stock_threshold', $request->input('stock_threshold'));
+			$valuestore->put('lower_price_threshold', $request->input('lower_price_threshold'));
+			$valuestore->put('upper_price_threshold', $request->input('upper_price_threshold'));
+			$valuestore->put('lower_price_threshold_extra_margin_markup', $request->input('lower_price_threshold_extra_margin_markup'));
+			$valuestore->put('margin_markup', $request->input('margin_markup'));
+			$valuestore->put('max_subtotal_in_basket', $request->input('max_subtotal_in_basket'));
+			
+			
+			return redirect()->back()->with('message', 'Settings updated');
 		}
-		
-		$formdata = $request->json()->all();
-		Log::debug($formdata);
-		
-		
-        return redirect()->back()->with('message', 'Settings updated.'); */
+		else{
+			abort(403);
+		}
     }
     
 	/**

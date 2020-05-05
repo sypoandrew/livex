@@ -66,7 +66,7 @@ class SearchMarketAPI extends LivexAPI
 		$params = [
 			#'lwin' => [18], #LWIN11/LWIN16/LWIN18
 			'currency' => 'gbp',
-			#'minPrice' => setting('Livex.price_threshold'),
+			#'minPrice' => setting('Livex.lower_price_threshold'),
 			'priceType' => ['offer'], #ignore bids
 			'dutyPaid' => false,
 			#'condition' => '',
@@ -576,11 +576,11 @@ class SearchMarketAPI extends LivexAPI
     public function calculate_item_price($item_price)
     {
 		$item_price_w_markup = (float) $item_price;
-		if($item_price >= 500){
+		if($item_price >= setting('Livex.upper_price_threshold')){
 			$item_price_w_markup = $item_price * (1 + (setting('Livex.margin_markup') / 100));
 		}
-		elseif($item_price >= 250 and $item_price < 500){
-			$item_price_w_markup = $item_price * (1 + (setting('Livex.margin_markup') / 100)) + 25;
+		elseif($item_price >= setting('Livex.lower_price_threshold') and $item_price < setting('Livex.upper_price_threshold')){
+			$item_price_w_markup = $item_price * (1 + (setting('Livex.margin_markup') / 100)) + setting('Livex.lower_price_threshold_extra_margin_markup');
 		}
 		return $item_price_w_markup * 100; #Aero stores price as int
     }

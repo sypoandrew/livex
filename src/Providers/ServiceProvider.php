@@ -42,7 +42,9 @@ class ServiceProvider extends ModuleServiceProvider
         Settings::group('Livex', function (SettingGroup $group) {
             $group->boolean('enabled')->default(true);
             $group->integer('stock_threshold')->default(0);
-            $group->integer('price_threshold')->default(250);
+            $group->integer('lower_price_threshold')->default(250);
+            $group->integer('upper_price_threshold')->default(500);
+            $group->integer('lower_price_threshold_extra_margin_markup')->default(25);
             $group->integer('margin_markup')->default(10);
             $group->integer('max_subtotal_in_basket')->default(3000);
         });
