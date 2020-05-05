@@ -230,6 +230,12 @@ class SearchMarketAPI extends LivexAPI
 					continue;
 				}
 				
+				if(setting('stock_threshold') > 0 and setting('stock_threshold') > $market['depth']['offers']['offer'][0]['quantity']){
+					#$this->result['error']++;
+					#Log::debug("ignore $sku due to stock threshold setting");
+					continue;
+				}
+				
 				$p = Product::where('model', 'LX'.$sku)->first();
 				if($p != null){
 					#already on system - just update the essentials
