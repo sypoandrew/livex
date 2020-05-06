@@ -255,6 +255,7 @@ class SearchMarketAPI extends LivexAPI
 					$order_guid = $market['depth']['offers']['offer'][0]['orderGUID'];
 					
 					#check for orderGUID tag and replace if required
+					$this->addOrReplaceTag($p, $this->tag_groups['Internal'], 'Liv-Ex API');
 					$this->addOrReplaceTag($p, $this->tag_groups['Liv-Ex Order GUID'], $order_guid);
 					$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod));
 					
@@ -318,7 +319,13 @@ class SearchMarketAPI extends LivexAPI
 							}
 							else{
 								$this->result['update_failed']++;
-								Log::warning('variant '.$in_bond_item->sku.' price failed to create');
+								#Log::warning('variant '.$in_bond_item->sku.' price failed to create');
+								
+								$err = new ErrorReport;
+								$err->message = 'variant '.$in_bond_item->sku.' price failed to create';
+								$err->code = $this->error_code;
+								$err->line = __LINE__;
+								$err->save();
 							}
 						}
 					}
@@ -374,12 +381,24 @@ class SearchMarketAPI extends LivexAPI
 							}
 							else{
 								$this->result['update_failed']++;
-								Log::warning('variant '.$variant->sku.' price failed to create');
+								#Log::warning('variant '.$variant->sku.' price failed to create');
+								
+								$err = new ErrorReport;
+								$err->message = 'variant '.$variant->sku.' price failed to create';
+								$err->code = $this->error_code;
+								$err->line = __LINE__;
+								$err->save();
 							}
 						}
 						else{
 							$this->result['update_failed']++;
-							Log::warning('variant '.$variant->sku.' failed to create');
+							#Log::warning('variant '.$variant->sku.' failed to create');
+							
+							$err = new ErrorReport;
+							$err->message = 'variant '.$variant->sku.' failed to create';
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->save();
 						}
 					}
 					
@@ -426,6 +445,11 @@ class SearchMarketAPI extends LivexAPI
 						else{
 							$wine_type = 'Still';
 						}
+						
+						#Internal tag for quick searching of API items in admin
+						$tag_group = $this->tag_groups['Internal'];
+						$tag = $this->findOrCreateTag('Liv-Ex API', $tag_group);
+						$p->tags()->syncWithoutDetaching($tag);
 						
 						#Bottle Size tag
 						$tag_group = $this->tag_groups['Bottle Size'];
@@ -529,13 +553,25 @@ class SearchMarketAPI extends LivexAPI
 								#Log::debug('variant price created successfully');
 							}
 							else{
-								Log::warning('variant price failed to create');
+								#Log::warning('variant price failed to create');
+								
+								$err = new ErrorReport;
+								$err->message = 'variant '.$variant->sku.' price failed to create';
+								$err->code = $this->error_code;
+								$err->line = __LINE__;
+								$err->save();
 							}
 						}
 						else{
 							$this->result['create_v_failed']++;
 							
-							Log::warning('variant '.$variant->sku.' failed to create');
+							#Log::warning('variant '.$variant->sku.' failed to create');
+							
+							$err = new ErrorReport;
+							$err->message = 'variant '.$variant->sku.' failed to create';
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->save();
 						}
 						
 						#Handle image

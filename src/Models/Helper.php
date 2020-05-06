@@ -4,6 +4,7 @@ namespace Sypo\Livex\Models;
 
 use Aero\Catalog\Models\TagGroup;
 use Aero\Common\Models\AdditionalAttribute;
+use Illuminate\Support\Facades\Log;
 
 class Helper
 {
@@ -15,7 +16,6 @@ class Helper
     public static function get_tag_groups()
     {
 		$language = config('app.locale');
-		#$groups = TagGroup::whereIn("name->{$language}", ['Bottle Size', 'Case Size', 'Colour', 'Country', 'Region', 'Sub Region', 'Vintage', 'Wine Type', 'Burgundy Cru', 'Liv-Ex Order GUID'])->get();
 		$groups = TagGroup::get();
 		$tag_groups = [];
 		foreach($groups as $g){
@@ -57,18 +57,7 @@ class Helper
      */
     public static function get_order_guids(\Aero\Cart\Models\Order $order)
     {
+		#Log::debug(AdditionalAttribute::where('attributable_type', 'order')->where('attributable_id', $order->id)->where('key', 'LIKE', 'livex_guid%')->toSql());
 		return AdditionalAttribute::where('attributable_type', 'order')->where('attributable_id', $order->id)->where('key', 'LIKE', 'livex_guid%')->get();
-    }
-
-    /**
-     * Get specific Liv-ex GUID for order
-     *
-     * @param \Aero\Cart\Models\Order $order
-     * @param $guid
-     * @return \Aero\Common\Models\AdditionalAttribute
-     */
-    public static function find_order_guid(\Aero\Cart\Models\Order $order, $guid)
-    {
-		return AdditionalAttribute::where('attributable_type', 'order')->where('attributable_id', $order->id)->where('key', 'LIKE', 'livex_guid%')->where('value', $guid)->first();
     }
 }

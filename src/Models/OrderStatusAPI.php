@@ -78,7 +78,7 @@ class OrderStatusAPI extends LivexAPI
 						$proceed_with_order = false;
 					}
 					
-					if($order_status['quantity'] < $item_info[$order_status['orderGUID']]['quantity']){
+					if($order_status['quantity'] < $item_info[$order_status['orderGUID']]['qty']){
 						#offer has less qty available than user has in basket - stop user from progressing through checkout
 						$proceed_with_order = false;
 					}

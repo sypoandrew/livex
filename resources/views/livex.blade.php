@@ -73,16 +73,16 @@
 		@csrf
 		
 		<div class="card mt-4 w-full">
-			<h3>Liv-ex API Errors</h3>
+			<h3>Liv-Ex API Log Report</h3>
 			
 			<div class="w-full overflow-auto" style="height:15em;">
 				@forelse($livex_errors as $livex_error)
 					<div class="mt-3">
-						<div><span class="font-medium">Order #{{ $livex_error->order_id }}</span> <span class="font-medium">{{ $livex_error->code }}</span> <span class="text-xs text-grey">@if($livex_error->created_at) &bullet; {{ $livex_error->created_at->diffForHumans() }}</span>@endif</div>
+						<div>@if($livex_error->order_id)<span class="font-medium">Order #{{ $livex_error->order_id }}</span> @endif<span class="font-medium">{{ $livex_error->code }}</span> <span class="text-xs text-grey">@if($livex_error->created_at) &bullet; {{ $livex_error->created_at->diffForHumans() }}</span>@endif</div>
 						<div class="py-1">{{ $livex_error->message }}</div>
 					</div>
 				@empty
-					<div class="mt-3">No Liv-ex errors</div>
+					<div class="mt-3">No Liv-ex logs</div>
 				@endforelse
 			</div>
 		</div>

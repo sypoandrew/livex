@@ -20,7 +20,7 @@ class ModuleController extends Controller
      */
     public function index(Request $request)
     {
-        $livex_errors = ErrorReport::get();
+        $livex_errors = ErrorReport::orderBy('id', 'DESC')->get();
         return view('livex::livex', ['livex_errors' => $livex_errors]);
     }
     
