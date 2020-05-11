@@ -14,10 +14,10 @@ class OrderStatusAPI extends LivexAPI
 	/**
      * Get Liv-ex Order GUIDs and line info from the order items
      *
-     * @param int $order_id
+     * @param \Aero\Cart\Models\Order $order
      * @return array
      */
-    public function get_order_details($order_id){
+    public function get_eligable_items(\Aero\Cart\Models\Order $order){
 		
 		$dets = Tag::select("tags.name", "order_items.sku", "order_items.quantity")
 		->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')
@@ -27,7 +27,23 @@ class OrderStatusAPI extends LivexAPI
 		->join('order_items', 'order_items.buyable_id', '=', 'variants.id')
 		->where("tag_groups.name->{$this->language}", 'Liv-Ex Order GUID')
 		->where('order_items.buyable_type', 'variant')
-		->where('order_items.order_id', $order_id)->get();
+		->where('order_items.order_id', $order->id)->get();
+		
+		#dd($dets);
+		
+		$dets = [];
+		$items = $order->items()->where('sku', 'like', 'LX%')->get();
+		$this->order_guids = [];
+		if($items != null){
+			foreach($items as $item){
+				$guid = $item->buyable()->first()->product()->first()->additional('livex_order_guid');
+				if($guid){
+					$dets[$guid] = ['sku' => $item->sku, 'qty' => $item->quantity];
+				}
+			}
+		}
+		
+		#dd($dets);
 		
 		return $dets;
 	}
@@ -46,12 +62,13 @@ class OrderStatusAPI extends LivexAPI
         $url = $this->base_url . 'exchange/v1/orderStatus';
 		
 		#get the Liv-ex order GUIDs from the Aero order items
-		$order_details = $this->get_order_details($order->id);
+		#$order_details = $this->get_order_details($order->id);
 		#dd($order_details);
-		$item_info = [];
-		foreach($order_details as $det){
-			$item_info[$det->name] = ['sku' => $det->sku, 'qty' => $det->quantity];
-		}
+		#$item_info = [];
+		#foreach($order_details as $det){
+		#	$item_info[$det->name] = ['sku' => $det->sku, 'qty' => $det->quantity];
+		#}
+		$item_info = $this->get_eligable_items($order);
 		#dd($item_info);
 		$this->order_guids = array_keys($item_info);
 		#dd($this->order_guids);

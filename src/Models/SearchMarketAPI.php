@@ -274,6 +274,7 @@ class SearchMarketAPI extends LivexAPI
 					#check for orderGUID tag and replace if required
 					$this->addOrReplaceTag($p, $this->tag_groups['Internal'], 'Liv-Ex API');
 					$this->addOrReplaceTag($p, $this->tag_groups['Liv-Ex Order GUID'], $order_guid);
+					$p->additional('livex_order_guid', $order_guid);
 					$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod));
 					
 					$minimumQty = ($minimumQty) ? $minimumQty : 0;
@@ -523,6 +524,7 @@ class SearchMarketAPI extends LivexAPI
 						$tag_group = $this->tag_groups['Liv-Ex Order GUID'];
 						$tag = $this->findOrCreateTag($order_guid, $tag_group);
 						$p->tags()->syncWithoutDetaching($tag);
+						$p->additional('livex_order_guid', $order_guid);
 						
 						#create the in-bond variant
 						$variant = new Variant;
