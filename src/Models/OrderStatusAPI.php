@@ -76,11 +76,25 @@ class OrderStatusAPI extends LivexAPI
 					if($order_status['orderStatus'] ==  'S' or $order_status['orderStatus'] ==  'T'){
 						#offer has been suspended or Traded - stop user from progressing through checkout
 						$proceed_with_order = false;
+						
+						$err = new ErrorReport;
+						$err->message = 'Offer '.$item_info[$order_status['orderGUID']]['sku'].' has been Suspended or Traded';
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order->id;
+						$err->save();
 					}
 					
 					if($order_status['quantity'] < $item_info[$order_status['orderGUID']]['qty']){
 						#offer has less qty available than user has in basket - stop user from progressing through checkout
 						$proceed_with_order = false;
+						
+						$err = new ErrorReport;
+						$err->message = 'Offer '.$item_info[$order_status['orderGUID']]['sku'].' has less qty available than user has in basket';
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order->id;
+						$err->save();
 					}
 				}
 			}

@@ -6,11 +6,13 @@ use Illuminate\Support\Facades\Log;
 use Aero\Catalog\Events\ProductCreated;
 use Aero\Catalog\Events\ProductUpdated;
 use Aero\Catalog\Models\Attribute;
+use Aero\Catalog\Models\Category;
 use Aero\Catalog\Models\Price;
 use Aero\Catalog\Models\Product;
 use Aero\Catalog\Models\Tag;
 use Aero\Catalog\Models\Variant;
 use Aero\Common\Models\Currency;
+use Sypo\Livex\Models\HeartbeatAPI;
 use Sypo\Livex\Models\LivexAPI;
 use Sypo\Livex\Models\Helper;
 use Sypo\Image\Models\Image as PlaceholderImage;
@@ -20,7 +22,7 @@ class SearchMarketAPI extends LivexAPI
 	protected $currency;
     protected $tag_groups;
     protected $attributes;
-	protected $categories = [3, 5]; #Buy Wine | Liv-Ex wines
+	protected $categories;
     public $result = ['count' => 0, 'i' => 0, 'created_p' => 0, 'created_v' => 0, 'create_p_failed' => 0, 'create_v_failed' => 0, 'updated' => 0, 'update_failed' => 0, 'error' => 0];
     public $items;
     /**
@@ -41,6 +43,8 @@ class SearchMarketAPI extends LivexAPI
      */
     public function __construct()
     {
+        parent::__construct();
+		
 		$this->currency = Currency::where('code', 'GBP')->first();
 		$this->tag_groups = Helper::get_tag_groups();
 		$this->attributes = [];
@@ -49,8 +53,7 @@ class SearchMarketAPI extends LivexAPI
 			$this->attributes[$a->name] = $a->id;
 		}
 		$this->placeholder_image = new PlaceholderImage;
-		
-        parent::__construct();
+		$this->categories = Category::whereIn("name->{$this->language}", ['Show All Wines','Liv-Ex wines'])->pluck('id')->toArray();
 	}
 	
 	
@@ -61,57 +64,71 @@ class SearchMarketAPI extends LivexAPI
      */
     public function call()
     {
-        $url = $this->base_url . 'search/v1/searchMarket';
-		
-		$params = [
-			#'lwin' => [18], #LWIN11/LWIN16/LWIN18
-			'currency' => 'gbp',
-			#'minPrice' => setting('Livex.lower_price_threshold'),
-			'priceType' => ['offer'], #ignore bids
-			'dutyPaid' => false,
-			#'condition' => '',
-			#'isCompetitive' => true,
-		];
+		$heartbeat = new HeartbeatAPI;
+		$connection_ok = $heartbeat->call();
+		if($connection_ok){
+			$url = $this->base_url . 'search/v1/searchMarket';
+			
+			$params = [
+				#'lwin' => [18], #LWIN11/LWIN16/LWIN18
+				'currency' => 'gbp',
+				#'minPrice' => setting('Livex.lower_price_threshold'),
+				'priceType' => ['offer'], #ignore bids
+				'dutyPaid' => false,
+				#'condition' => '',
+				#'isCompetitive' => true,
+			];
 
 
-		#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
-		$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
-		$this->set_responsedata();
-		
-		#Log::debug(__FUNCTION__);
-		#Log::debug($status_code);
-		
-		#Log::debug($this->responsedata);
-		#dd($this->responsedata);
-		#Log::debug($this->responsedata['pageInfo']);
-		if($this->responsedata['status'] == 'OK'){
-			$this->result['count'] = $this->responsedata['pageInfo']['totalResults'];
-			$this->result['i'] = 0;
-			$this->result['created_p'] = 0;
-			$this->result['created_v'] = 0;
-			$this->result['create_p_failed'] = 0;
-			$this->result['create_v_failed'] = 0;
-			$this->result['updated'] = 0;
-			$this->result['update_failed'] = 0;
-			$this->result['error'] = 0;
-			$this->processed_items = [];
+			#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
+			$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
+			$this->set_responsedata();
 			
-			$img = new PlaceholderImage;
+			#Log::debug(__FUNCTION__);
+			#Log::debug($status_code);
 			
-			if(isset($this->responsedata['searchResponse'])){
-				Log::debug($this->responsedata['searchResponse']);
-				$this->result['count'] = count($this->responsedata['searchResponse']);
-				$this->items = $this->responsedata['searchResponse'];
+			#Log::debug($this->responsedata);
+			#dd($this->responsedata);
+			#Log::debug($this->responsedata['pageInfo']);
+			if($this->responsedata['status'] == 'OK'){
+				$this->result['count'] = $this->responsedata['pageInfo']['totalResults'];
+				$this->result['i'] = 0;
+				$this->result['created_p'] = 0;
+				$this->result['created_v'] = 0;
+				$this->result['create_p_failed'] = 0;
+				$this->result['create_v_failed'] = 0;
+				$this->result['updated'] = 0;
+				$this->result['update_failed'] = 0;
+				$this->result['error'] = 0;
+				$this->processed_items = [];
 				
-			} #end check for search response
+				$img = new PlaceholderImage;
+				
+				if(isset($this->responsedata['searchResponse'])){
+					Log::debug($this->responsedata['searchResponse']);
+					$this->result['count'] = count($this->responsedata['searchResponse']);
+					$this->items = $this->responsedata['searchResponse'];
+					
+				} #end check for search response
+			}
+			else{
+				#Log::warning(json_encode($this->responsedata));
+				
+				$err = new ErrorReport;
+				$err->message = json_encode($this->responsedata);
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$err->save();
+			}
 		}
 		else{
-			#Log::warning(json_encode($this->responsedata));
+			#Log::warning('Connection to Liv-ex failed');
 			
 			$err = new ErrorReport;
-			$err->message = json_encode($this->responsedata);
+			$err->message = 'Unable to post order '.$order->id.' to Liv-ex. Connection to Liv-ex failed.';
 			$err->code = $this->error_code;
 			$err->line = __LINE__;
+			$err->order_id = $order->id;
 			$err->save();
 		}
     }

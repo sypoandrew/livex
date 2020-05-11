@@ -12,6 +12,7 @@ class OrderPush
     protected $approved_user_agents = [];
     protected $error_code = 'order_push';
     protected $environment;
+    protected $wait_time = 10;
     
     /**
      * Create a new class instance.
@@ -90,54 +91,10 @@ class OrderPush
             $data = $request->json()->all();
             #dd($data);
             if(isset($data['trade'])){
-                $order = null;
-                if(isset($data['trade']['merchant_ref'])){
-                    $order = Order::where('reference', $data['trade']['merchant_ref'])->first();
-                    if($order !== null){
-                        #fix to resolve issue with PUSH notificiation returning too quickly
-                        sleep(2);
-                        if(isset($data['trade']['order_guid'])){
-                            if($order->hasAdditional('livex_guid_'.$data['trade']['order_guid'])){
-                                #matched the GUID - let's save the trade id
-                                $order->additional('livex_tradeid_'.$data['trade']['trade_id'], $data['trade']['order_guid']);
-                            }
-                            else{
-                                #order guid not found
-                                $err = new ErrorReport;
-                                $err->message = 'Order GUID '.$data['trade']['order_guid'].' not matched against order. ' . json_encode($request->all());
-                                $err->code = $this->error_code;
-                                $err->line = __LINE__;
-                                $err->order_id = $order->id;
-                                $err->save();
-                            }
-                        }
-                        else{
-                            #order not found...
-                            $err = new ErrorReport;
-                            $err->message = 'No order GUID found. ' . json_encode($request->all());
-                            $err->code = $this->error_code;
-                            $err->line = __LINE__;
-                            $err->order_id = $order->id;
-                            $err->save();
-                        }
-                    }
-                    else{
-                        $err = new ErrorReport;
-                        $err->message = 'Order not found ' . $data['trade']['merchant_ref'] . '. ' .  json_encode($request->all());
-                        $err->code = $this->error_code;
-                        $err->line = __LINE__;
-                        $err->save();
-                    }
-                    
-                    return true;
-                }
-                else{
-                    $err = new ErrorReport;
-                    $err->message = 'No order reference found. ' . json_encode($request->all());
-                    $err->code = $this->error_code;
-                    $err->line = __LINE__;
-                    $err->save();
-                }
+                return $this->confirm_trade($request);
+            }
+            elseif(isset($data['order'])){
+                return $this->order_update($request);
             }
             else{
                 $err = new ErrorReport;
@@ -156,4 +113,144 @@ class OrderPush
         }
         return false;
     }
+    
+    /**
+     * Process confirm trade PUSH request
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return boolean
+     */
+    protected function confirm_trade(\Illuminate\Http\Request $request)
+    {
+		$data = $request->json()->all();
+		#dd($data);
+		if(isset($data['trade'])){
+			$order = null;
+			if(isset($data['trade']['merchant_ref'])){
+				$order = Order::where('reference', $data['trade']['merchant_ref'])->first();
+				if($order !== null){
+					#fix to resolve issue with PUSH notificiation returning too quickly
+					sleep($this->wait_time);
+					if(isset($data['trade']['order_guid'])){
+						if($order->hasAdditional('livex_guid_'.$data['trade']['order_guid'])){
+							#matched the GUID - let's save the trade id
+							$order->additional('livex_tradeid_'.$data['trade']['trade_id'], $data['trade']['order_guid']);
+						}
+						else{
+							#order guid not found
+							$err = new ErrorReport;
+							$err->message = 'Order GUID '.$data['trade']['order_guid'].' not matched against order. ' . json_encode($request->all());
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+						}
+					}
+					else{
+						#order not found...
+						$err = new ErrorReport;
+						$err->message = 'No order GUID found. ' . json_encode($request->all());
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order->id;
+						$err->save();
+					}
+				}
+				else{
+					$err = new ErrorReport;
+					$err->message = 'Order not found ' . $data['trade']['merchant_ref'] . '. ' .  json_encode($request->all());
+					$err->code = $this->error_code;
+					$err->line = __LINE__;
+					$err->save();
+				}
+				
+				return true;
+			}
+			else{
+				$err = new ErrorReport;
+				$err->message = 'No order reference found. ' . json_encode($request->all());
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$err->save();
+			}
+		}
+		
+		return false;
+	}
+    
+    /**
+     * Process order update PUSH request
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return boolean
+     */
+    protected function order_update(\Illuminate\Http\Request $request)
+    {
+		$data = $request->json()->all();
+		#dd($data);
+		if(isset($data['order'])){
+			$order = null;
+			if(isset($data['order']['merchant_ref'])){
+				$order = Order::where('reference', $data['order']['merchant_ref'])->first();
+				if($order !== null){
+					#fix to resolve issue with PUSH notificiation returning too quickly
+					sleep($this->wait_time);
+					if(isset($data['order']['order_status']) and ($data['order']['order_status'] == 'Suspended' or $data['order']['order_status'] == 'Deleted')){
+						if(isset($data['order']['order_guid'])){
+							if($order->hasAdditional('livex_guid_'.$data['order']['order_guid'])){
+								#matched the GUID - let's save the status for future refund process_request
+								$status = strtolower($data['order']['order_status']);
+								$order->additional('livex_' . $status . '_' . $data['order']['order_guid'], $data['order']['lwin']);
+							}
+							else{
+								#order guid not found
+								$err = new ErrorReport;
+								$err->message = 'Order GUID '.$data['order']['order_guid'].' not matched against order. ' . json_encode($request->all());
+								$err->code = $this->error_code;
+								$err->line = __LINE__;
+								$err->order_id = $order->id;
+								$err->save();
+							}
+						}
+						else{
+							#order not found...
+							$err = new ErrorReport;
+							$err->message = 'No order GUID found. ' . json_encode($request->all());
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+						}
+					}
+					else{
+						#order not found...
+						$err = new ErrorReport;
+						$err->message = 'Status notification for manual review. ' . json_encode($request->all());
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order->id;
+						$err->save();
+					}
+				}
+				else{
+					$err = new ErrorReport;
+					$err->message = 'Order not found ' . $data['order']['merchant_ref'] . '. ' .  json_encode($request->all());
+					$err->code = $this->error_code;
+					$err->line = __LINE__;
+					$err->save();
+				}
+				
+				return true;
+			}
+			else{
+				$err = new ErrorReport;
+				$err->message = 'No order reference found. ' . json_encode($request->all());
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$err->save();
+			}
+		}
+		
+		return false;
+	}
 }
