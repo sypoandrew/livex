@@ -10,6 +10,7 @@ class OrderStatusAPI extends LivexAPI
 {
     protected $error_code = 'order_status_api';
     protected $order_guids;
+    protected $errors; # user friendly error reporting
     
 	/**
      * Get Liv-ex Order GUIDs and line info from the order items
@@ -18,19 +19,6 @@ class OrderStatusAPI extends LivexAPI
      * @return array
      */
     public function get_eligable_items(\Aero\Cart\Models\Order $order){
-		
-		$dets = Tag::select("tags.name", "order_items.sku", "order_items.quantity")
-		->join('tag_groups', 'tag_groups.id', '=', 'tags.tag_group_id')
-		->join('product_tag', 'product_tag.tag_id', '=', 'tags.id')
-		->join('products', 'products.id', '=', 'product_tag.product_id')
-		->join('variants', 'variants.product_id', '=', 'products.id')
-		->join('order_items', 'order_items.buyable_id', '=', 'variants.id')
-		->where("tag_groups.name->{$this->language}", 'Liv-Ex Order GUID')
-		->where('order_items.buyable_type', 'variant')
-		->where('order_items.order_id', $order->id)->get();
-		
-		#dd($dets);
-		
 		$dets = [];
 		$items = $order->items()->where('sku', 'like', 'LX%')->get();
 		$this->order_guids = [];
@@ -44,7 +32,6 @@ class OrderStatusAPI extends LivexAPI
 		}
 		
 		#dd($dets);
-		
 		return $dets;
 	}
 
@@ -52,8 +39,7 @@ class OrderStatusAPI extends LivexAPI
      * Order Status API – check status of offers in basket (prior to checkout payment)
      *
      * @param \Aero\Cart\Models\Order $order
-     * @param boolean $return_result
-     * @return boolean | mixed if $return_result
+     * @return boolean
      */
     public function call(\Aero\Cart\Models\Order $order)
     {
@@ -62,72 +48,73 @@ class OrderStatusAPI extends LivexAPI
         $url = $this->base_url . 'exchange/v1/orderStatus';
 		
 		#get the Liv-ex order GUIDs from the Aero order items
-		#$order_details = $this->get_order_details($order->id);
-		#dd($order_details);
-		#$item_info = [];
-		#foreach($order_details as $det){
-		#	$item_info[$det->name] = ['sku' => $det->sku, 'qty' => $det->quantity];
-		#}
 		$item_info = $this->get_eligable_items($order);
 		#dd($item_info);
 		$this->order_guids = array_keys($item_info);
 		#dd($this->order_guids);
-		#Log::debug($this->order_guids);
 		
 		if($this->order_guids){
-			$params = [
-				'orderGUID' => $this->order_guids,
-			];
+			#report each item individually for more granular error reporting
+			foreach($this->order_guids as $guid){
+				$params = [
+					'orderGUID' => [$guid],
+				];
 
-			#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
-			$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
-			$this->set_responsedata();
+				#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
+				$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
+				$this->set_responsedata();
 
-			#Log::debug(__FUNCTION__);
-			
-			#Log::debug($this->responsedata);
-			if($this->responsedata['status'] == 'OK'){
-				#dd($this->responsedata);
-				foreach($this->responsedata['orderStatus']['status'] as $order_status){
-					#check if able to proceed with Aero order here...
-					if($order_status['orderStatus'] ==  'S' or $order_status['orderStatus'] ==  'T'){
-						#offer has been suspended or Traded - stop user from progressing through checkout
-						$proceed_with_order = false;
+				#Log::debug($this->responsedata);
+				if($this->responsedata['status'] == 'OK'){
+					#dd($this->responsedata);
+					foreach($this->responsedata['orderStatus']['status'] as $order_status){
+						#check if able to proceed with Aero order here...
+						if($order_status['orderStatus'] ==  'S' or $order_status['orderStatus'] ==  'T'){
+							#offer has been suspended or Traded - stop user from progressing through checkout
+							$proceed_with_order = false;
+							
+							$err = new ErrorReport;
+							$err->message = 'Offer '.$item_info[$order_status['orderGUID']]['sku'].' has been Suspended or Traded';
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+							
+							$product_name = $order->items()->where('sku', $item_info[$guid]['sku'])->first()->name;
+							$this->errors[] = $product_name . ' is currently unavailable from our suppliers.';
+						}
 						
-						$err = new ErrorReport;
-						$err->message = 'Offer '.$item_info[$order_status['orderGUID']]['sku'].' has been Suspended or Traded';
-						$err->code = $this->error_code;
-						$err->line = __LINE__;
-						$err->order_id = $order->id;
-						$err->save();
-					}
-					
-					if($order_status['quantity'] < $item_info[$order_status['orderGUID']]['qty']){
-						#offer has less qty available than user has in basket - stop user from progressing through checkout
-						$proceed_with_order = false;
-						
-						$err = new ErrorReport;
-						$err->message = 'Offer '.$item_info[$order_status['orderGUID']]['sku'].' has less qty available than user has in basket';
-						$err->code = $this->error_code;
-						$err->line = __LINE__;
-						$err->order_id = $order->id;
-						$err->save();
+						if($order_status['quantity'] < $item_info[$order_status['orderGUID']]['qty']){
+							#offer has less qty available than user has in basket - stop user from progressing through checkout
+							$proceed_with_order = false;
+							
+							$err = new ErrorReport;
+							$err->message = 'Offer '.$item_info[$order_status['orderGUID']]['sku'].' has less qty available than user has in basket';
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+							
+							$product_name = $order->items()->where('sku', $item_info[$guid]['sku'])->first()->name;
+							$this->errors[] = 'Only ' . $order_status['quantity'] . ' x ' . $product_name . ' are currently available from our suppliers.';
+						}
 					}
 				}
-			}
-			else{
-				#Log::warning(json_encode($this->responsedata));
-				
-				$err = new ErrorReport;
-				$err->message = json_encode($this->responsedata);
-				$err->code = $this->error_code;
-				$err->line = __LINE__;
-				$err->order_id = $order->id;
-				$err->save();
-				
-				if(isset($this->responsedata['error']) and $this->responsedata['error']['code'] == 'V056'){
-					#GUID is not available or does not exist - removed from Liv-ex so prevent customer from proceeding
-					$proceed_with_order = false;
+				else{
+					$err = new ErrorReport;
+					$err->message = json_encode($this->responsedata);
+					$err->code = $this->error_code;
+					$err->line = __LINE__;
+					$err->order_id = $order->id;
+					$err->save();
+					
+					if(isset($this->responsedata['error']) and $this->responsedata['error']['code'] == 'V056'){
+						#GUID is not available or does not exist - removed from Liv-ex so prevent customer from proceeding
+						$proceed_with_order = false;
+						
+						$product_name = $order->items()->where('sku', $item_info[$guid]['sku'])->first()->name;
+						$this->errors[] = $product_name . ' is currently unavailable from our suppliers.';
+					}
 				}
 			}
 		}
@@ -141,5 +128,9 @@ class OrderStatusAPI extends LivexAPI
 	
 	public function get_order_guids(){
 		return $this->order_guids;
+	}
+	
+	public function get_errors(){
+		return $this->errors;
 	}
 }

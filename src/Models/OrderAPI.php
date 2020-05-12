@@ -32,9 +32,9 @@ class OrderAPI extends LivexAPI
 				if($connection_ok){
 					$url = $this->base_url . 'exchange/v6/orders';
 					
-					#get the item status from Liv-ex - this is in nice format to then handle the params to post the order
+					#get the item statuses from Liv-ex
 					$order_status = new OrderStatusAPI;
-					$proceed_with_order = $order_status->call($order, true);
+					$proceed_with_order = $order_status->call($order);
 					$order_guids = $order_status->get_order_guids();
 					$response = $order_status->get_responsedata();
 					$dets = (isset($response['orderStatus']['status'])) ? $response['orderStatus']['status'] : array();
