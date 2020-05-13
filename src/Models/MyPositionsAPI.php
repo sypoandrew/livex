@@ -29,28 +29,47 @@ class MyPositionsAPI extends LivexAPI
      * @param \Aero\Cart\Models\Order $order
      * @return void
      */
-    public function call(\Aero\Cart\Models\Order $order)
+    public function call(\Aero\Cart\Models\Order $order, $order_guid)
     {
 		$proceed_with_order = true;
 		
         $url = $this->base_url . 'exchange/v1/myPositions';
 		
-		$order_guid = '';
-		
 		$params = [
 			'currency' => $this->currency->code,
-			'orderGUID' => $order_guid,
+			'merchantRef' => $order->reference
 		];
 
 		#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
 		$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
 		$this->set_responsedata();
 
-		#dd($this->responsedata);
 		if($this->responsedata['status'] == 'OK'){
-			foreach($this->responsedata['positions'] as $position){
-				//handle response here...
-				dd($position);
+			if($this->responsedata['positions']){
+				foreach($this->responsedata['positions'] as $position){
+					//handle response here...
+					foreach($position['status'] as $status){
+						if($status['orderStatus'] == 'Suspended' or $status['orderStatus'] == 'Deleted'){
+							$order->additional('livex_'.strtolower($status['orderStatus']).'_'.$status['orderGUID'], $status['lwin']);
+						}
+						else{
+							$err = new ErrorReport;
+							$err->message = 'Status not currently handled. '.json_encode($this->responsedata);
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+						}
+					}
+				}
+			}
+			else{
+				$err = new ErrorReport;
+				$err->message = 'No positions found. '.json_encode($this->responsedata);
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$err->order_id = $order->id;
+				$err->save();
 			}
 		}
 		else{
