@@ -35,7 +35,7 @@ class OrderAPI extends LivexAPI
 					#get the item statuses from Liv-ex
 					$order_status = new OrderStatusAPI;
 					$proceed_with_order = $order_status->call($order);
-					$order_guids = $order_status->get_order_guids();
+					$offer_guids = $order_status->get_offer_guids();
 					$response = $order_status->get_responsedata();
 					$dets = (isset($response['orderStatus']['status'])) ? $response['orderStatus']['status'] : array();
 					#dd($dets);
@@ -137,7 +137,7 @@ class OrderAPI extends LivexAPI
 							$err->save();
 						}
 					}
-					elseif($order_guids){
+					elseif($offer_guids){
 						#Log::warning('Unable to post order '.$order->id.' to Liv-ex');
 						
 						$err = new ErrorReport;
@@ -186,39 +186,36 @@ class OrderAPI extends LivexAPI
      * Orders API – Delete order on Liv-ex if bid fails (after checkout payment)
      *
      * @param \Aero\Cart\Models\Order $order
+     * @param string $livex_bid_guid
      * @return boolean
      */
-    public function cancel(\Aero\Cart\Models\Order $order)
+    public function cancel(\Aero\Cart\Models\Order $order, $livex_bid_guid)
     {
-		$guids = Helper::get_order_guids($order);
-		if($guids != null){
+		#check bid guid is assigned to order
+		if($order->additional('livex_guid_'.$livex_bid_guid) != ''){
 			$url = $this->base_url . 'exchange/v6/orders';
 			
-			foreach($guids as $guid_data){
-				
-				$params = [
-					'orderGUID' => $guid_data->value,
-				];
+			$params = [
+				'orderGUID' => [$livex_bid_guid],
+			];
 
-				#$this->response = $this->client->request('DELETE', $url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
-				$this->response = $this->client->request('DELETE', $url, ['headers' => $this->headers, 'json' => $params]);
-				$this->set_responsedata();
+			#$this->response = $this->client->request('DELETE', $url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
+			$this->response = $this->client->request('DELETE', $url, ['headers' => $this->headers, 'json' => $params]);
+			$this->set_responsedata();
+			
+			if($this->responsedata['status'] == 'OK'){
+				$order->additional('livex_deleted_'.$livex_bid_guid, $order->additional('livex_guid_'.$livex_bid_guid));
+				return true;
+			}
+			else{
+				#Log::warning(json_encode($this->responsedata));
 				
-				#Log::debug(__FUNCTION__);
-				
-				if($this->responsedata['status'] == 'OK'){
-					return true;
-				}
-				else{
-					#Log::warning(json_encode($this->responsedata));
-					
-					$err = new ErrorReport;
-					$err->message = json_encode($this->responsedata);
-					$err->code = $this->error_code;
-					$err->line = __LINE__;
-					$err->order_id = $order->id;
-					$err->save();
-				}
+				$err = new ErrorReport;
+				$err->message = json_encode($this->responsedata);
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$err->order_id = $order->id;
+				$err->save();
 			}
 		}
 		

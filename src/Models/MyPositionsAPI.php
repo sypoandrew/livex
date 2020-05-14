@@ -8,8 +8,7 @@ use Aero\Common\Models\Currency;
 class MyPositionsAPI extends LivexAPI
 {
     protected $error_code = 'my_positions_api';
-    protected $currency;
-
+    protected $currency = 'GBP';
 
     /**
      * Create a new class instance.
@@ -19,24 +18,22 @@ class MyPositionsAPI extends LivexAPI
     public function __construct()
     {
         parent::__construct();
-		
-		$this->currency = Currency::where('code', 'GBP')->first();
 	}
 
     /**
-     * Order Status API – check status of offers in basket (prior to checkout payment)
+     * My Positions API – check for suspended or deleted bids for web order
      *
      * @param \Aero\Cart\Models\Order $order
      * @return void
      */
-    public function call(\Aero\Cart\Models\Order $order, $order_guid)
+    public function call(\Aero\Cart\Models\Order $order)
     {
 		$proceed_with_order = true;
 		
         $url = $this->base_url . 'exchange/v1/myPositions';
 		
 		$params = [
-			'currency' => $this->currency->code,
+			'currency' => $this->currency,
 			'merchantRef' => $order->reference
 		];
 

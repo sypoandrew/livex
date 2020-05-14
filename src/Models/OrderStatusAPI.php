@@ -10,24 +10,24 @@ use Sypo\Livex\Models\LivexAPI;
 class OrderStatusAPI extends LivexAPI
 {
     protected $error_code = 'order_status_api';
-    protected $order_guids;
+    protected $offer_guids;
     protected $errors; # user friendly error reporting
     
 	/**
-     * Get Liv-ex Order GUIDs and line info from the order items
+     * Get Liv-ex Offer GUIDs and line info from the order items
      *
      * @param \Aero\Cart\Models\Order or \Aero\Cart\Cart $order
      * @return array
      */
     public function get_eligable_items($order){
 		$dets = [];
-		$this->order_guids = [];
+		$this->offer_guids = [];
 		if($order instanceof \Aero\Cart\Cart) {
 			$items = $order->items();
 			#dd($items);
 			foreach($items as $item){
 				if(substr($item->sku, 0, 2) == 'LX'){
-					$guid = $item->model->product()->first()->additional('livex_order_guid');
+					$guid = $item->model->product()->first()->additional('livex_offer_guid');
 					if($guid){
 						$dets[$guid] = ['sku' => $item->sku, 'qty' => $item->quantity];
 					}
@@ -41,7 +41,7 @@ class OrderStatusAPI extends LivexAPI
 			$items = $order->items()->where('sku', 'like', 'LX%')->get();
 			if($items != null){
 				foreach($items as $item){
-					$guid = $item->buyable()->first()->product()->first()->additional('livex_order_guid');
+					$guid = $item->buyable()->first()->product()->first()->additional('livex_offer_guid');
 					if($guid){
 						$dets[$guid] = ['sku' => $item->sku, 'qty' => $item->quantity];
 					}
@@ -78,8 +78,8 @@ class OrderStatusAPI extends LivexAPI
 		#get the Liv-ex order GUIDs from the Aero order items
 		$item_info = $this->get_eligable_items($order);
 		#dd($item_info);
-		$this->order_guids = array_keys($item_info);
-		#dd($this->order_guids);
+		$this->offer_guids = array_keys($item_info);
+		#dd($this->offer_guids);
 		
 		$order_line_count = 0;
 		if($order instanceof \Aero\Cart\Cart) {
@@ -100,9 +100,9 @@ class OrderStatusAPI extends LivexAPI
 			#some LX products do not have a guid attached - do not allow to order
 			$proceed_with_order = false;
 		}
-		elseif($this->order_guids){
+		elseif($this->offer_guids){
 			#report each item individually for more granular error reporting
-			foreach($this->order_guids as $guid){
+			foreach($this->offer_guids as $guid){
 				$params = [
 					'orderGUID' => [$guid],
 				];
@@ -171,9 +171,64 @@ class OrderStatusAPI extends LivexAPI
 		#dd($proceed_with_order);
 		return $proceed_with_order;
     }
+
+    /**
+     * Order Status API – check status of bid order guid that we didn't receieve a trade id for
+     *
+     * @param string $livex_bid_guid
+     * @return boolean
+     */
+    public function bid_status(\Aero\Cart\Models\Order $order, $livex_bid_guid)
+    {
+		$status = '';
+		
+		#check bid guid is assigned to order
+		if($order->additional('livex_guid_'.$livex_bid_guid) != ''){
+			$url = $this->base_url . 'exchange/v1/orderStatus';
+			
+			$params = [
+				'orderGUID' => [$livex_bid_guid],
+			];
+
+			#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
+			$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
+			$this->set_responsedata();
+
+			#Log::debug($this->responsedata);
+			if($this->responsedata['status'] == 'OK'){
+				#dd($this->responsedata);
+				foreach($this->responsedata['orderStatus']['status'] as $data){
+					#check if able to proceed with Aero order here...
+					$status = $data['orderStatus'];
+					
+					if($status ==  'S'){
+						$order->additional('livex_suspended_' . $livex_bid_guid, $data['lwin']);
+					}
+					elseif($status ==  'T'){
+						$err = new ErrorReport;
+						$err->message = 'Manual review required. '.$data['lwin'].' was traded but no tradeid receieved from PUSH notification';
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order_id;
+						$err->save();
+					}
+				}
+			}
+			else{
+				$err = new ErrorReport;
+				$err->message = json_encode($this->responsedata);
+				$err->code = $this->error_code;
+				$err->line = __LINE__;
+				$err->order_id = $order_id;
+				$err->save();
+			}
+		}
+		
+		return $status;
+    }
 	
-	public function get_order_guids(){
-		return $this->order_guids;
+	public function get_offer_guids(){
+		return $this->offer_guids;
 	}
 	
 	public function get_errors(){
