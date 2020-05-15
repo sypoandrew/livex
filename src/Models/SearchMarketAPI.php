@@ -199,7 +199,7 @@ class SearchMarketAPI extends LivexAPI
 			#zero all other Livex stock that wasn't on the feed
 			#NOTE we only want to do this at after all pages on the API feed have been processed
 			
-			$ignore_lx_items = $this->process->items()->pluck('product_id');
+			$ignore_lx_items = $this->process->items()->pluck('product_id')->toArray();
 			dd($ignore_lx_items);
 			
 			#dd($this->processed_items);
