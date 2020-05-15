@@ -22,7 +22,7 @@ class OrderAPI extends LivexAPI
      */
     public function add(\Aero\Cart\Models\Order $order)
     {
-		#dont send to live-ex if cash payment method
+		#dont send to liv-ex if cash payment method
 		if($order->payment_methods->first()->driver != 'cash' or $this->environment == 'test'){
 			#only send to Livex if order amount is less than threshold
 			if($order->subtotalPrice->incValue < (setting('Livex.max_subtotal_in_basket') * 100)){

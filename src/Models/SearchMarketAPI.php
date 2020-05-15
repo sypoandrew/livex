@@ -15,6 +15,8 @@ use Aero\Common\Models\Currency;
 use Sypo\Livex\Models\HeartbeatAPI;
 use Sypo\Livex\Models\LivexAPI;
 use Sypo\Livex\Models\Helper;
+use Sypo\Livex\Models\SearchMarketProcess;
+use Sypo\Livex\Models\SearchMarketItem;
 use Sypo\Image\Models\Image as PlaceholderImage;
 
 class SearchMarketAPI extends LivexAPI
@@ -34,6 +36,7 @@ class SearchMarketAPI extends LivexAPI
     protected $processed_items;
     protected $placeholder_image;
     protected $error_code = 'search_market_api';
+    protected $process; #the current process stored in database
 
 
     /**
@@ -54,6 +57,16 @@ class SearchMarketAPI extends LivexAPI
 		}
 		$this->placeholder_image = new PlaceholderImage;
 		$this->categories = Category::whereIn("name->{$this->language}", ['Show All Wines','Liv-Ex wines'])->pluck('id')->toArray();
+		
+		$this->process = SearchMarketProcess::find(1);
+		if(!$this->process){
+			$this->process = new SearchMarketProcess;
+			$this->process->total_items = 1000; #set arbitrary value until first API call
+			$this->process->page_size = 100; #'25' (minimum), '50', '100', '250' (maximum)
+			$this->process->complete = 1;
+			$this->process->current_page = 0;
+			$this->process->save();
+		}
 	}
 	
 	
@@ -67,55 +80,82 @@ class SearchMarketAPI extends LivexAPI
 		$heartbeat = new HeartbeatAPI;
 		$connection_ok = $heartbeat->call();
 		if($connection_ok){
-			$url = $this->base_url . 'search/v1/searchMarket';
-			
-			$params = [
-				#'lwin' => [18], #LWIN11/LWIN16/LWIN18
-				'currency' => 'gbp',
-				#'minPrice' => setting('Livex.lower_price_threshold'),
-				'priceType' => ['offer'], #ignore bids
-				'dutyPaid' => false,
-				#'condition' => '',
-				#'isCompetitive' => true,
-			];
+			if($this->process->complete){
+				#work out if we need to reset page counter
+				#Log::debug("page last run:{$this->process->current_page} total pages:{$this->process->total_pages()}");
+				#dd("page last run:{$this->process->current_page} total pages:{$this->process->total_pages()}");
+				if($this->process->current_page >= 1 and ($this->process->current_page == $this->process->total_pages())){
+					#last page reached on previous run - lets reset the current page counter
+					#dd('reset counter - total pages '.$this->process->total_pages());
+					$this->process->current_page = 0;
+					$this->process->save();
+					$this->process->lines()->delete();
+				}
+				
+				$pagelimit = $this->process->page_size;
+				$pagenumber = (int) $this->process->current_page + 1;
+				
+				$url = $this->base_url . 'search/v1/searchMarket?limit='.$pagelimit.'&offset='.$pagenumber;
+				
+				$params = [
+					#'lwin' => [18], #LWIN11/LWIN16/LWIN18
+					'currency' => 'gbp',
+					#'minPrice' => setting('Livex.lower_price_threshold'),
+					'priceType' => ['offer'], #ignore bids
+					'dutyPaid' => false,
+					#'condition' => '',
+					#'isCompetitive' => true,
+				];
 
 
-			#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
-			$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
-			$this->set_responsedata();
-			
-			#Log::debug(__FUNCTION__);
-			#Log::debug($status_code);
-			
-			#Log::debug($this->responsedata);
-			#dd($this->responsedata);
-			#Log::debug($this->responsedata['pageInfo']);
-			if($this->responsedata['status'] == 'OK'){
-				$this->result['count'] = $this->responsedata['pageInfo']['totalResults'];
-				$this->result['i'] = 0;
-				$this->result['created_p'] = 0;
-				$this->result['created_v'] = 0;
-				$this->result['create_p_failed'] = 0;
-				$this->result['create_v_failed'] = 0;
-				$this->result['updated'] = 0;
-				$this->result['update_failed'] = 0;
-				$this->result['error'] = 0;
-				$this->processed_items = [];
+				#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
+				$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
+				$this->set_responsedata();
 				
-				$img = new PlaceholderImage;
+				#Log::debug(__FUNCTION__);
+				#Log::debug($status_code);
 				
-				if(isset($this->responsedata['searchResponse'])){
-					Log::debug($this->responsedata['searchResponse']);
-					$this->result['count'] = count($this->responsedata['searchResponse']);
-					$this->items = $this->responsedata['searchResponse'];
+				#Log::debug($this->responsedata);
+				#dd($this->responsedata);
+				#Log::debug($this->responsedata['pageInfo']);
+				if($this->responsedata['status'] == 'OK'){
+					$this->result['count'] = $this->responsedata['apiInfo']['pageInfo']['totalResults'];
+					$this->result['i'] = 0;
+					$this->result['created_p'] = 0;
+					$this->result['created_v'] = 0;
+					$this->result['create_p_failed'] = 0;
+					$this->result['create_v_failed'] = 0;
+					$this->result['updated'] = 0;
+					$this->result['update_failed'] = 0;
+					$this->result['error'] = 0;
+					$this->processed_items = [];
 					
-				} #end check for search response
+					if(isset($this->responsedata['searchResponse'])){
+						Log::debug($this->responsedata['searchResponse']);
+						$this->result['count'] = count($this->responsedata['searchResponse']);
+						$this->items = $this->responsedata['searchResponse'];
+						
+						$this->process->complete = 0;
+						$this->process->total_items = $this->responsedata['apiInfo']['pageInfo']['totalResults'];
+						$this->process->current_page = $pagenumber;
+						$this->process->save();
+						
+					} #end check for search response
+				}
+				else{
+					#Log::warning(json_encode($this->responsedata));
+					
+					$err = new ErrorReport;
+					$err->message = json_encode($this->responsedata);
+					$err->code = $this->error_code;
+					$err->line = __LINE__;
+					$err->save();
+				}
 			}
 			else{
-				#Log::warning(json_encode($this->responsedata));
 				
 				$err = new ErrorReport;
-				$err->message = json_encode($this->responsedata);
+				$err->message = 'Unable to run Search Market API - routine still in progress.';
 				$err->code = $this->error_code;
 				$err->line = __LINE__;
 				$err->save();
@@ -125,10 +165,9 @@ class SearchMarketAPI extends LivexAPI
 			#Log::warning('Connection to Liv-ex failed');
 			
 			$err = new ErrorReport;
-			$err->message = 'Unable to post order '.$order->id.' to Liv-ex. Connection to Liv-ex failed.';
+			$err->message = 'Connection to Liv-ex failed.';
 			$err->code = $this->error_code;
 			$err->line = __LINE__;
-			$err->order_id = $order->id;
 			$err->save();
 		}
     }
@@ -154,23 +193,40 @@ class SearchMarketAPI extends LivexAPI
      */
     public function cleanup()
     {
-		#zero all other Livex stock that wasn't on the feed
-		#dd($this->processed_items);
-		#dd(Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->toSql());
-		$zero_stock_items = [];
-		$zero_stock = Variant::select('product_id')->where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->get();
-		foreach($zero_stock as $zero_stock_item){
-			$zero_stock_items[$zero_stock_item->product_id] = $zero_stock_item->product_id;
-			#add product to reindex routine
-			$this->addToProducts($zero_stock_item->product()->first());
+		Log::debug('reindex '.count($this->products['created']).' new and '.count($this->products['updated']).' items from Search Market API process');
+		
+		if($this->process->current_page >= 1 and ($this->process->current_page == $this->process->total_pages())){
+			#zero all other Livex stock that wasn't on the feed
+			#NOTE we only want to do this at after all pages on the API feed have been processed
+			
+			$ignore_lx_items = $this->process->items()->pluck('product_id');
+			dd($ignore_lx_items);
+			
+			#dd($this->processed_items);
+			#dd(Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->toSql());
+			$zero_stock_items = [];
+			#$zero_stock = Variant::select('product_id')->where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->get();
+			$zero_stock = Variant::select('product_id')->where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $ignore_lx_items)->get();
+			if($zero_stock){
+				foreach($zero_stock as $zero_stock_item){
+					$zero_stock_items[$zero_stock_item->product_id] = $zero_stock_item->product_id;
+					#add product to reindex routine
+					$this->addToProducts($zero_stock_item->product()->first());
+				}
+				#Log::debug('Set '.count($zero_stock_items).' LX items to zero stock');
+				#Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->update(['stock_level' => 0]);
+				Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $ignore_lx_items)->update(['stock_level' => 0]);
+			}
 		}
-		Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->update(['stock_level' => 0]);
 		
 		#force reindexing
 		$this->checkIndexing(true);
 		
 		#Log::debug("Search API complete");
 		#Log::debug("created products {$this->result['created_p']}/{$this->result['count']} | created variants {$this->result['created_v']}/{$this->result['count']} | failed products {$this->result['create_p_failed']}/{$this->result['count']} | failed variants {$this->result['create_v_failed']}/{$this->result['count']} | updated {$this->result['updated']}/{$this->result['count']} | update failed {$this->result['update_failed']}/{$this->result['count']} | ignored {$this->result['error']}/{$this->result['count']}");
+		
+		$this->process->complete = 1;
+		$this->process->save();
     }
 
     /**
@@ -261,6 +317,7 @@ class SearchMarketAPI extends LivexAPI
 					#dd('update the variant LX'.$sku);
 					
 					$this->processed_items[] = $p->id;
+					$this->log_item($p->id);
 					
 					if(!$p->allImages()->count()){
 						#Handle image placeholder
@@ -447,6 +504,7 @@ class SearchMarketAPI extends LivexAPI
 						$this->result['created_p']++;
 						
 						$this->processed_items[] = $p->id;
+						$this->log_item($p->id);
 						
 						#add into categories
 						foreach($this->categories as $category_id){
@@ -626,6 +684,20 @@ class SearchMarketAPI extends LivexAPI
 				$err->save();
 			}
 		} #end markets loop
+    }
+
+    /**
+     * Log processed item
+     *
+     * @param int $product_id
+     * @return void
+     */
+    protected function log_item(int $product_id)
+    {
+		$item_log = new SearchMarketItem;
+		$item_log->process_id = $this->process->id;
+		$item_log->product_id = $product_id;
+		$item_log->save();
     }
 
     /**
