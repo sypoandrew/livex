@@ -6,6 +6,7 @@ use Sypo\Livex\Models\LivexAPI;
 
 class HeartbeatAPI extends LivexAPI
 {
+    protected $error_code = 'heartbeat_api';
     /**
      * Heartbeat API – Checks that Liv-ex server is up and available
      *

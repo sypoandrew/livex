@@ -89,7 +89,7 @@ class SearchMarketAPI extends LivexAPI
 					#dd('reset counter - total pages '.$this->process->total_pages());
 					$this->process->current_page = 0;
 					$this->process->save();
-					$this->process->lines()->delete();
+					$this->process->items()->delete();
 				}
 				
 				$pagelimit = $this->process->page_size;
@@ -131,7 +131,7 @@ class SearchMarketAPI extends LivexAPI
 					$this->processed_items = [];
 					
 					if(isset($this->responsedata['searchResponse'])){
-						Log::debug($this->responsedata['searchResponse']);
+						#Log::debug($this->responsedata['searchResponse']);
 						$this->result['count'] = count($this->responsedata['searchResponse']);
 						$this->items = $this->responsedata['searchResponse'];
 						
@@ -154,8 +154,13 @@ class SearchMarketAPI extends LivexAPI
 			}
 			else{
 				
+				$updated_within_last_hour = ($this->process->updated_at < \Carbon\Carbon::now()->sub('1 hours')->toDateTimeString()) ? false : true;
+				if(!$updated_within_last_hour){
+					$this->process->reset_process();
+				}
+				
 				$err = new ErrorReport;
-				$err->message = 'Unable to run Search Market API - routine still in progress.';
+				$err->message = 'Unable to run Search Market API - routine '.$this->process->current_page.'/'.$this->process->total_pages().' still in progress?';
 				$err->code = $this->error_code;
 				$err->line = __LINE__;
 				$err->save();
@@ -180,10 +185,12 @@ class SearchMarketAPI extends LivexAPI
     public function process_all()
     {
 		$this->call();
-		foreach($this->items as $item){
-			$this->process_item($item);
+		if($this->items){
+			foreach($this->items as $item){
+				$this->process_item($item);
+			}
+			$this->cleanup();
 		}
-		$this->cleanup();
     }
 
     /**
@@ -198,14 +205,10 @@ class SearchMarketAPI extends LivexAPI
 		if($this->process->current_page >= 1 and ($this->process->current_page == $this->process->total_pages())){
 			#zero all other Livex stock that wasn't on the feed
 			#NOTE we only want to do this at after all pages on the API feed have been processed
-			
 			$ignore_lx_items = $this->process->items()->pluck('product_id')->toArray();
-			dd($ignore_lx_items);
+			#dd($ignore_lx_items);
 			
-			#dd($this->processed_items);
-			#dd(Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->toSql());
 			$zero_stock_items = [];
-			#$zero_stock = Variant::select('product_id')->where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->get();
 			$zero_stock = Variant::select('product_id')->where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $ignore_lx_items)->get();
 			if($zero_stock){
 				foreach($zero_stock as $zero_stock_item){
@@ -214,7 +217,6 @@ class SearchMarketAPI extends LivexAPI
 					$this->addToProducts($zero_stock_item->product()->first());
 				}
 				#Log::debug('Set '.count($zero_stock_items).' LX items to zero stock');
-				#Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $this->processed_items)->update(['stock_level' => 0]);
 				Variant::where('sku', 'like', 'LX%')->where('stock_level', '>', 0)->whereNotIn('product_id', $ignore_lx_items)->update(['stock_level' => 0]);
 			}
 		}

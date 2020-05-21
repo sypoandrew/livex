@@ -26,7 +26,7 @@ class SearchMarketItem extends Model
 	 */
 	public function setProcessIdAttribute($process_id)
 	{
-		return $this->sypo_livex_import_id = $process_id;
+		$this->sypo_livex_import_id = $process_id;
 	}
     /*
     |--------------------------------------------------------------------------
