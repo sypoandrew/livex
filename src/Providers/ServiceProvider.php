@@ -22,6 +22,7 @@ class ServiceProvider extends ModuleServiceProvider
     protected $commands = [
         'Sypo\Livex\Console\Commands\Heartbeat',
         'Sypo\Livex\Console\Commands\SearchMarket',
+        'Sypo\Livex\Console\Commands\ProcessRefund',
     ];
 
     public function register(): void 

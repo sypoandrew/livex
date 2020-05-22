@@ -114,10 +114,11 @@ class OrderAPI extends LivexAPI
 										}
 									}
 									else{
+										#SKU doesn't start with LX
 										#Log::warning('unable to post order line '.$item->sku.' to Liv-ex');
 										
 										$err = new ErrorReport;
-										$err->message = 'Unable to post order line '.$item->sku.' to Liv-ex.';
+										$err->message = 'Ignore SKU '.$item->sku.' when posting order to Liv-ex.';
 										$err->code = $this->error_code;
 										$err->line = __LINE__;
 										$err->order_id = $order->id;
