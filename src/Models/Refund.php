@@ -11,6 +11,7 @@ use Aero\Store\Events\FormSubmitted;
 use Aero\Cart\Models\Order;
 use Aero\Cart\Models\OrderItem;
 use Aero\Cart\Models\OrderStatus;
+use Sypo\Delivery\Models\BondedWarehouseAddress;
 
 class Refund
 {
@@ -29,7 +30,7 @@ class Refund
         #dd($order->payments->filter->isSuccessful()->first());
         #dd($order->payment_methods->first()->getDriver());
 		
-		$amount = 10;
+		#$amount = 10;
 		
 		$payment = $order->payments->filter->isSuccessful()->first();
 		#dd($payment->id);
@@ -37,27 +38,29 @@ class Refund
 		$driver = $order->payment_methods->first()->getDriver();
 		$this->response = $driver->refund($amount, $payment);
 		
-		
-		$items = $order->items()->get();
-		
-		$order_r = $order->toArray();
-		$order_r['items'] = $items->toArray();
-		foreach($items as $k => $item){
-			$order_r['items'][$k]['tags'] = $item->buyable()->first()->product()->first()->tags()->get()->toArray();
+		#send email to customer notifying refund, only if successful
+		if($this->response->isSuccessful()){
+			$items = $order->items()->get();
+			
+			$order_r = $order->toArray();
+			$order_r['items'] = $items->toArray();
+			foreach($items as $k => $item){
+				$order_r['items'][$k]['tags'] = $item->buyable()->first()->product()->first()->tags()->get()->toArray();
+			}
+			
+			$params = [
+			'email' => $order->email, #field to hook into 'send to customer'
+			'refundtype' => ($order->isPaymentsFullyRefunded()) ? 'full' : 'partial',
+			'order' => $order_r,
+			];
+			
+			#dd($params);
+			#send customer email notification
+			event(new FormSubmitted('refund', $params));
 		}
 		
-		$params = [
-		'email' => $order->email, #field to hook into 'send to customer'
-		'refundtype' => ($order->isPaymentsFullyRefunded()) ? 'full' : 'partial',
-		'order' => $order_r,
-		];
-		
-		#dd($params);
-		#send customer email notification
-		event(new FormSubmitted('refund', $params));
-		
 		#dd($this->response);
-		return $this->response->successful;
+		return $this->response->isSuccessful();
     }
     
     /**
@@ -83,10 +86,11 @@ class Refund
 				$this->process_order($order);
 				$r[] = $order->id;
 			}
-			dd($r);
+			#dd($r);
+			#dd('refund process complete');
 		}
 		else{
-			dd('no new orders to process');
+			#dd('no new orders to process');
 		}
     }
     
@@ -107,7 +111,9 @@ class Refund
      */
     protected function process_order(\Aero\Cart\Models\Order $order)
     {
-		$line_count = $order->items()->count();
+		#make sure we ignore the bonded warehouse charge product when checking order line count...
+		$bonded_warehouse_models = BondedWarehouseAddress::getModels();
+		$line_count = $order->items()->whereNotIn('sku', $bonded_warehouse_models)->count();
 		$lx_line_count = $order->items()->where('sku', 'like', 'LX%')->count();
 		$num_order_guids = $order->additionals()->where('key', 'like', 'livex_guid_%')->count();
 		$num_trade_guids = $order->additionals()->where('key', 'like', 'livex_tradeid_%')->count();
@@ -129,12 +135,12 @@ class Refund
 				$err->line = __LINE__;
 				$err->order_id = $order->id;
 				$err->save();
-				dd('all traded successfully - '.$order->id);
+				#dd('all traded successfully - '.$order->id);
 			}
 			elseif($lx_line_count != $num_order_guids){
 				#some items failed to add to order API - manual review required
 				$failed_items = $lx_line_count - $num_order_guids;
-				dd('Skip refund check - '.$failed_items.' LX item(s) failed to post to Liv-ex via order API - '.$order->id);
+				#dd('Skip refund check - '.$failed_items.' LX item(s) failed to post to Liv-ex via order API - '.$order->id);
 				
 				$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
 				
@@ -144,17 +150,21 @@ class Refund
 				$err->line = __LINE__;
 				$err->order_id = $order->id;
 				$err->save();
+				#dd('Skip refund check - '.$failed_items.' LX item(s) failed to post to Liv-ex via order API - '.$order->id);
 			}
 			else{
 				#order posted to order api but we haven't receieved all PUSH notifications - check using Order Status API
 				
-				dd('check OrderStatusAPI - '.$order->id);
+				#dd('check OrderStatusAPI - '.$order->id);
 				
 				$refund_r = [];
 				$has_traded = 0;
 				$order_guids = $order->additionals()->where('key', 'like', 'livex_guid_%')->get();
-				foreach($order_guids as $k => $sku){
-					$guid = str_replace('livex_guid_', '', $k);
+				foreach($order_guids as $k => $attribute){
+					#dd($attribute);
+					$guid = str_replace('livex_guid_', '', $attribute->key);
+					$sku = $attribute->value;
+					#dd($guid);
 					
 					$has_tradeid = $order->additionals()->where('key', 'like', 'livex_tradeid_%')->where('value', $guid)->first();
 					$has_suspended_note = $order->additionals()->where('key', 'livex_suspended_'.$guid)->first();
@@ -163,12 +173,20 @@ class Refund
 					$status = '';
 					if(!$has_tradeid and !$has_suspended_note and !$has_deleted_note){
 						#we don't know the final status of this bid - try checking Order Status API (will add suspended note to order if status=S)
+						#dd('check order status of guid '.$guid.' from OrderStatusAPI');
 						$s = new OrderStatusAPI;
 						$status = $s->bid_status($order, $guid);
-						dd($status);
+						#$status = 'S'; #TESTING!
+						#dd($status);
 					}
 					else{
-						dd('ignore '.$guid.' - we already know status of this order bid');
+						#dd('ignore '.$guid.' from OrderStatusAPI calls - we already know status of this order bid');
+						if($has_tradeid){
+							$has_traded++;
+						}
+						elseif($has_suspended_note or $has_deleted_note){
+							$refund_r[$sku] = $sku;
+						}
 					}
 					
 					if($status == 'T' or $has_tradeid){
@@ -176,7 +194,7 @@ class Refund
 						$has_traded++;
 					}
 					else{
-						$refund_r[] = $sku;
+						$refund_r[$sku] = $sku;
 						
 						#item not traded but we don't have a suspended/deleted notice - send cancel request to Liv-ex to make sure
 						if(!$has_suspended_note and !$has_deleted_note){
@@ -187,23 +205,86 @@ class Refund
 					}
 				}
 				
-				dd($refund_r);
+				#dd($refund_r);
 				
-				if(count($refund_r) == $line_count){
-					#full refund
+				if($lx_line_count == $line_count and count($refund_r) == $line_count){
+					#full refund, including shipping
 					$amount = $order->total_rounded;
-					dd('full refund £'.$amount.' for order '.$order->id);
-					#$this->handle_refund($amount, $order);
+					#dd('full refund £'.$amount.' for order '.$order->id);
+					$refunded = $this->handle_refund($amount, $order);
+					if($refunded){
+						#dd('refund success');
+						$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+						
+						$formatted_amount = (string) $order->total_price;
+						$err = new ErrorReport;
+						$err->message = 'Refunded full order amount '.$formatted_amount;
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order->id;
+						$err->save();
+						#dd('refund success');
+					}
+					else{
+						#if the refund fails, flag the order so we don't keep trying, just notify the order admin page and add error log
+						#dd('refund failed');
+						$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+						
+						$err = new ErrorReport;
+						$err->message = 'Manual review required. Refund failed';
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order->id;
+						$err->save();
+					}
+				}
+				elseif($has_traded == $lx_line_count){
+					#after checking OrderStatusAPI, all items traded successfully - update the order (no refund to process)
+					#dd('Skip refund check - all traded successfully (after additional OrderStatusAPI check)');
+					$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+					
+					$err = new ErrorReport;
+					$err->message = 'Skip refund check - all traded successfully (after additional OrderStatusAPI check)';
+					$err->code = $this->error_code;
+					$err->line = __LINE__;
+					$err->order_id = $order->id;
+					$err->save();
+					#dd('Skip refund check - all traded successfully (after additional OrderStatusAPI check)');
 				}
 				else{
-					#partial refund
+					#handle partial refund
 					$total_to_refund = 0;
 					$refundable_items = OrderItem::whereIn('sku', $refund_r)->get();
 					foreach($refundable_items as $item){
 						$total_to_refund += $item->total_rounded;
 					}
-					dd('partial refund £'.$total_to_refund.' for order '.$order->id);
-					#$this->handle_refund($total_to_refund, $order);
+					#dd('partial refund £'.$total_to_refund.' for order '.$order->id);
+					#$refunded = $this->handle_refund($total_to_refund, $order);
+					
+					if($refunded){
+						#dd('refund success');
+						$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+						
+						$formatted_amount = $order->currency->format($total_to_refund / 100);
+						$err = new ErrorReport;
+						$err->message = 'Refunded partial order amount '.$formatted_amount;
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order->id;
+						$err->save();
+					}
+					else{
+						#if the refund fails, flag the order so we don't keep trying, just notify the order admin page and add error log
+						#dd('refund failed');
+						$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+						
+						$err = new ErrorReport;
+						$err->message = 'Manual review required. Refund failed';
+						$err->code = $this->error_code;
+						$err->line = __LINE__;
+						$err->order_id = $order->id;
+						$err->save();
+					}
 				}
 			}
 		}
@@ -218,7 +299,7 @@ class Refund
 			$err->line = __LINE__;
 			$err->order_id = $order->id;
 			$err->save();
-			dd('ignore order (no LX items) - '.$order->id);
+			#dd('ignore order (no LX items) - '.$order->id);
 		}
     }
 }

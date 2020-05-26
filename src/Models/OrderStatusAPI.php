@@ -205,11 +205,12 @@ class OrderStatusAPI extends LivexAPI
 						$order->additional('livex_suspended_' . $livex_bid_guid, $data['lwin']);
 					}
 					elseif($status ==  'T'){
+						$lwin18 = $data['lwin'] . $data['vintage'] . $data['bottleInCase'] . $data['bottleSize'];
 						$err = new ErrorReport;
-						$err->message = 'Manual review required. '.$data['lwin'].' was traded but no tradeid receieved from PUSH notification';
+						$err->message = 'Manual review required. '.$lwin18.' was traded but no tradeid receieved from PUSH notification';
 						$err->code = $this->error_code;
 						$err->line = __LINE__;
-						$err->order_id = $order_id;
+						$err->order_id = $order->id;
 						$err->save();
 					}
 				}
@@ -219,9 +220,17 @@ class OrderStatusAPI extends LivexAPI
 				$err->message = json_encode($this->responsedata);
 				$err->code = $this->error_code;
 				$err->line = __LINE__;
-				$err->order_id = $order_id;
+				$err->order_id = $order->id;
 				$err->save();
 			}
+		}
+		else{
+			$err = new ErrorReport;
+			$err->message = $livex_bid_guid.' GUID not associated with order '.$order->id;
+			$err->code = $this->error_code;
+			$err->line = __LINE__;
+			$err->order_id = $order->id;
+			$err->save();
 		}
 		
 		return $status;

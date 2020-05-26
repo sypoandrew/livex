@@ -219,6 +219,14 @@ class OrderAPI extends LivexAPI
 				$err->save();
 			}
 		}
+		else{
+			$err = new ErrorReport;
+			$err->message = $livex_bid_guid.' GUID not associated with order '.$order->id;
+			$err->code = $this->error_code;
+			$err->line = __LINE__;
+			$err->order_id = $order->id;
+			$err->save();
+		}
 		
 		return false;
     }
