@@ -18,6 +18,7 @@ use Sypo\Livex\Models\Helper;
 use Sypo\Livex\Models\SearchMarketProcess;
 use Sypo\Livex\Models\SearchMarketItem;
 use Sypo\Image\Models\Image as PlaceholderImage;
+use Sypo\Dutytax\Models\Dutytax;
 
 class SearchMarketAPI extends LivexAPI
 {
@@ -25,7 +26,7 @@ class SearchMarketAPI extends LivexAPI
     protected $tag_groups;
     protected $attributes;
 	protected $categories;
-    public $result = ['count' => 0, 'i' => 0, 'created_p' => 0, 'created_v' => 0, 'create_p_failed' => 0, 'create_v_failed' => 0, 'updated' => 0, 'update_failed' => 0, 'error' => 0];
+    public $result = ['count' => 0, 'page' => 0, 'total_pages' => 0, 'i' => 0, 'created_p' => 0, 'created_v' => 0, 'create_p_failed' => 0, 'create_v_failed' => 0, 'updated' => 0, 'update_failed' => 0, 'error' => 0];
     public $items;
     /**
      * Storage of products that have been processed.
@@ -37,6 +38,7 @@ class SearchMarketAPI extends LivexAPI
     protected $placeholder_image;
     protected $error_code = 'search_market_api';
     protected $process; #the current process stored in database
+    protected $dutytax; #class handler for duty price calculation
 
 
     /**
@@ -67,6 +69,8 @@ class SearchMarketAPI extends LivexAPI
 			$this->process->current_page = 0;
 			$this->process->save();
 		}
+		
+		$this->dutytax = new Dutytax;
 	}
 	
 	
@@ -100,6 +104,7 @@ class SearchMarketAPI extends LivexAPI
 				$params = [
 					#'lwin' => [18], #LWIN11/LWIN16/LWIN18
 					'currency' => 'gbp',
+					#'contractType' => ['SEP'],
 					#'minPrice' => setting('Livex.lower_price_threshold'),
 					'priceType' => ['offer'], #ignore bids
 					'dutyPaid' => false,
@@ -119,7 +124,7 @@ class SearchMarketAPI extends LivexAPI
 				#dd($this->responsedata);
 				#Log::debug($this->responsedata['pageInfo']);
 				if($this->responsedata['status'] == 'OK'){
-					$this->result['count'] = $this->responsedata['apiInfo']['pageInfo']['totalResults'];
+					$this->result['count'] = isset($this->responsedata['apiInfo']['pageInfo']) ? $this->responsedata['apiInfo']['pageInfo']['totalResults'] : 0;
 					$this->result['i'] = 0;
 					$this->result['created_p'] = 0;
 					$this->result['created_v'] = 0;
@@ -131,14 +136,18 @@ class SearchMarketAPI extends LivexAPI
 					$this->processed_items = [];
 					
 					if(isset($this->responsedata['searchResponse'])){
+						#dd($this->responsedata['searchResponse']);
 						#Log::debug($this->responsedata['searchResponse']);
 						$this->result['count'] = count($this->responsedata['searchResponse']);
 						$this->items = $this->responsedata['searchResponse'];
 						
 						$this->process->complete = 0;
-						$this->process->total_items = $this->responsedata['apiInfo']['pageInfo']['totalResults'];
+						$this->process->total_items = isset($this->responsedata['apiInfo']['pageInfo']) ? $this->responsedata['apiInfo']['pageInfo']['totalResults'] : 0;
 						$this->process->current_page = $pagenumber;
 						$this->process->save();
+						
+						$this->result['page'] = $pagenumber;
+						$this->result['total_pages'] = $this->process->total_pages();
 						
 					} #end check for search response
 				}
@@ -200,7 +209,7 @@ class SearchMarketAPI extends LivexAPI
      */
     public function cleanup()
     {
-		Log::debug('reindex '.count($this->products['created']).' new and '.count($this->products['updated']).' items from Search Market API process');
+		Log::debug('reindex '.count($this->products['created']).' new and '.count($this->products['updated']).' updated items from Search Market API process');
 		
 		if($this->process->current_page >= 1 and ($this->process->current_page == $this->process->total_pages())){
 			#zero all other Livex stock that wasn't on the feed
@@ -229,6 +238,9 @@ class SearchMarketAPI extends LivexAPI
 		
 		$this->process->complete = 1;
 		$this->process->save();
+		
+		#testing to run same page again
+		#$this->process->reset_process();
     }
 
     /**
@@ -287,7 +299,7 @@ class SearchMarketAPI extends LivexAPI
 					#break;
 				}
 				
-				if($market['depth']['offers']['offer'][0]['price'] < 250){
+				if($market['depth']['offers']['offer'][0]['price'] < setting('Livex.lower_price_threshold')){
 					#$this->result['error']++;
 					#Log::debug("ignore $sku due to price {$market['depth']['offers']['offer'][0]['price']}");
 					continue;
@@ -305,7 +317,7 @@ class SearchMarketAPI extends LivexAPI
 					continue;
 				}
 				
-				if(setting('stock_threshold') > 0 and setting('stock_threshold') > $market['depth']['offers']['offer'][0]['quantity']){
+				if(setting('Livex.stock_threshold') > 0 and setting('Livex.stock_threshold') > $market['depth']['offers']['offer'][0]['quantity']){
 					#$this->result['error']++;
 					#Log::debug("ignore $sku due to stock threshold setting");
 					continue;
@@ -370,6 +382,11 @@ class SearchMarketAPI extends LivexAPI
 								#dd([$item_price_w_markup, $price->value]);
 								$price_updated = $price->update(['value' => $item_price_w_markup]);
 								#Log::debug("{$p->id} {$in_bond_item->sku} variant price updated successfully new price {$item_price_w_markup}");
+								
+								if(substr($in_bond_item->sku, -2) == 'IB'){
+									#recalc the duty paid price
+									$this->dutytax->calc_duty_paid_price($in_bond_item);
+								}
 							}
 						}
 						else{
@@ -393,6 +410,11 @@ class SearchMarketAPI extends LivexAPI
 							
 							if($price->save()){
 								#Log::debug('variant price created successfully');
+								
+								if(substr($in_bond_item->sku, -2) == 'IB'){
+									#recalc the duty paid price
+									$this->dutytax->calc_duty_paid_price($in_bond_item);
+								}
 							}
 							else{
 								$this->result['update_failed']++;
@@ -434,6 +456,9 @@ class SearchMarketAPI extends LivexAPI
 							if($dutyPaid){
 								$variant->attributes()->syncWithoutDetaching([$this->attributes['Duty Paid'] => ['sort' => $variant->attributes()->count()]]);
 							}
+							elseif($contractType == 'SEP'){
+								$variant->attributes()->syncWithoutDetaching([$this->attributes['En Primeur'] => ['sort' => $variant->attributes()->count()]]);
+							}
 							else{
 								$variant->attributes()->syncWithoutDetaching([$this->attributes['Bond'] => ['sort' => $variant->attributes()->count()]]);
 							}
@@ -455,6 +480,11 @@ class SearchMarketAPI extends LivexAPI
 							
 							if($price->save()){
 								#Log::debug('variant price created successfully');
+								
+								if(substr($variant->sku, -2) == 'IB'){
+									#recalc the duty paid price
+									$this->dutytax->calc_duty_paid_price($variant);
+								}
 							}
 							else{
 								$this->result['update_failed']++;
@@ -609,6 +639,9 @@ class SearchMarketAPI extends LivexAPI
 							if($dutyPaid){
 								$variant->attributes()->syncWithoutDetaching([$this->attributes['Duty Paid'] => ['sort' => $variant->attributes()->count()]]);
 							}
+							elseif($contractType == 'SEP'){
+								$variant->attributes()->syncWithoutDetaching([$this->attributes['En Primeur'] => ['sort' => $variant->attributes()->count()]]);
+							}
 							else{
 								$variant->attributes()->syncWithoutDetaching([$this->attributes['Bond'] => ['sort' => $variant->attributes()->count()]]);
 							}
@@ -630,6 +663,11 @@ class SearchMarketAPI extends LivexAPI
 							
 							if($price->save()){
 								#Log::debug('variant price created successfully');
+								
+								if(substr($variant->sku, -2) == 'IB'){
+									#recalc the duty paid price
+									$this->dutytax->calc_duty_paid_price($variant);
+								}
 							}
 							else{
 								#Log::warning('variant price failed to create');

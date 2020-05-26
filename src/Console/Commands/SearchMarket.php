@@ -53,7 +53,8 @@ class SearchMarket extends Command
 			$l->cleanup();
 			
 			$this->info('Process complete');
-			$this->info("processed {$l->result['i']}/{$l->result['count']}");
+			$this->info("processed page {$l->result['page']}/{$l->result['total_pages']}");
+			$this->info("processed items {$l->result['i']}/{$l->result['count']}");
 			$this->info("created products {$l->result['created_p']}/{$l->result['count']}");
 			$this->info("created variants {$l->result['created_v']}/{$l->result['count']}");
 			$this->info("failed products {$l->result['create_p_failed']}/{$l->result['count']}");
