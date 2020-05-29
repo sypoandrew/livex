@@ -866,7 +866,7 @@ class SearchMarketAPI extends LivexAPI
 			}
 			else{
 				#delete the current one
-				$p->tags()->where('tag_group_id', $group->id)->delete();
+				#$p->tags()->where('tag_group_id', $group->id)->delete();
 				
 				#add the new tag
 				$tag = $this->findOrCreateTag($tag_value, $group);
