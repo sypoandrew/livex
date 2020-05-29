@@ -99,6 +99,8 @@ class SearchMarketAPI extends LivexAPI
 				$pagelimit = $this->process->page_size;
 				$pagenumber = (int) $this->process->current_page + 1;
 				
+				Log::debug("process page:{$pagenumber} total pages:{$this->process->total_pages()}");
+				
 				$url = $this->base_url . 'search/v1/searchMarket?limit='.$pagelimit.'&offset='.$pagenumber;
 				
 				$params = [
@@ -123,8 +125,18 @@ class SearchMarketAPI extends LivexAPI
 				#Log::debug($this->responsedata);
 				#dd($this->responsedata);
 				#Log::debug($this->responsedata['pageInfo']);
+				#Log::debug($this->responsedata['apiInfo']);
 				if($this->responsedata['status'] == 'OK'){
-					$this->result['count'] = isset($this->responsedata['apiInfo']['pageInfo']) ? $this->responsedata['apiInfo']['pageInfo']['totalResults'] : 0;
+					
+					$page_info = [];
+					if(isset($this->responsedata['pageInfo'])){
+						$page_info = $this->responsedata['pageInfo'];
+					}
+					elseif(isset($this->responsedata['apiInfo']['pageInfo'])){
+						$page_info = $this->responsedata['apiInfo']['pageInfo'];
+					}
+					
+					$this->result['count'] = isset($page_info['totalResults']) ? $page_info['totalResults'] : 0;
 					$this->result['i'] = 0;
 					$this->result['created_p'] = 0;
 					$this->result['created_v'] = 0;
@@ -142,7 +154,7 @@ class SearchMarketAPI extends LivexAPI
 						$this->items = $this->responsedata['searchResponse'];
 						
 						$this->process->complete = 0;
-						$this->process->total_items = isset($this->responsedata['apiInfo']['pageInfo']) ? $this->responsedata['apiInfo']['pageInfo']['totalResults'] : 0;
+						$this->process->total_items = isset($page_info['totalResults']) ? $page_info['totalResults'] : 0;
 						$this->process->current_page = $pagenumber;
 						$this->process->save();
 						
