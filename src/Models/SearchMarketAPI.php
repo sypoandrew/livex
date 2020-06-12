@@ -358,6 +358,7 @@ class SearchMarketAPI extends LivexAPI
 					$this->addOrReplaceTag($p, $this->tag_groups['Internal'], 'Liv-Ex API');
 					#$this->addOrReplaceTag($p, $this->tag_groups['Liv-Ex Order GUID'], $order_guid);
 					$p->additional('livex_offer_guid', $order_guid);
+					$p->additional('livex_import_api_last_processed', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
 					$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod));
 					
 					$minimumQty = ($minimumQty) ? $minimumQty : 0;
@@ -627,6 +628,7 @@ class SearchMarketAPI extends LivexAPI
 						#$tag = $this->findOrCreateTag($order_guid, $tag_group);
 						#$p->tags()->syncWithoutDetaching($tag);
 						$p->additional('livex_offer_guid', $order_guid);
+						$p->additional('livex_import_api_last_processed', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
 						
 						#create the in-bond variant
 						$variant = new Variant;
@@ -767,6 +769,9 @@ class SearchMarketAPI extends LivexAPI
 		elseif($item_price >= setting('Livex.lower_price_threshold') and $item_price < setting('Livex.upper_price_threshold')){
 			$item_price_w_markup = $item_price * (1 + (setting('Livex.margin_markup') / 100)) + setting('Livex.lower_price_threshold_extra_margin_markup');
 		}
+		#round to the nearest pound
+		$item_price_w_markup = round($item_price_w_markup);
+		
 		return $item_price_w_markup * 100; #Aero stores price as int
     }
 
