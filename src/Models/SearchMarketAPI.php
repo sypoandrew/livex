@@ -111,7 +111,7 @@ class SearchMarketAPI extends LivexAPI
 					'priceType' => ['offer'], #ignore bids
 					'dutyPaid' => false,
 					#'condition' => '',
-					#'isCompetitive' => true,
+					'isCompetitive' => true,
 				];
 
 
