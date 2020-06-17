@@ -119,8 +119,7 @@ class SearchMarketAPI extends LivexAPI
 				$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
 				$this->set_responsedata();
 				
-				#Log::debug(__FUNCTION__);
-				#Log::debug($status_code);
+				file_put_contents(storage_path('logs/search_api_log/log-'.\Carbon\Carbon::now()->format('Y-m-d-H-i-s').'.json'), $this->response->getBody());
 				
 				#Log::debug($this->responsedata);
 				#dd($this->responsedata);
@@ -300,6 +299,7 @@ class SearchMarketAPI extends LivexAPI
 			$contractType = $market['contractType']; #SIB/SEP/X
 			$minimumQty = $market['special']['minimumQty'];
 			$deliveryPeriod = $market['special']['deliveryPeriod'];
+			$condition = $market['special']['condition'];
 			$isCompetitive = $market['depth']['offers']['offer'][0]['isCompetitive'];
 			
 			$burgundy_cru = '';
@@ -312,25 +312,31 @@ class SearchMarketAPI extends LivexAPI
 				}
 				
 				if($market['depth']['offers']['offer'][0]['price'] < setting('Livex.lower_price_threshold')){
-					#$this->result['error']++;
+					$this->result['error']++;
 					#Log::debug("ignore $sku due to price {$market['depth']['offers']['offer'][0]['price']}");
 					continue;
 				}
 				
 				if($minimumQty > 1){
-					#$this->result['error']++;
+					$this->result['error']++;
 					#Log::debug("ignore $sku due to minimumQty {$minimumQty}");
 					continue;
 				}
 				
 				if($dutyPaid){
-					#$this->result['error']++;
+					$this->result['error']++;
 					#Log::debug("ignore $sku due to dutyPaid {$dutyPaid}");
 					continue;
 				}
 				
+				if($condition != ""){
+					$this->result['error']++;
+					#Log::debug("ignore $sku due to special condition {$condition}");
+					continue;
+				}
+				
 				if(setting('Livex.stock_threshold') > 0 and setting('Livex.stock_threshold') > $market['depth']['offers']['offer'][0]['quantity']){
-					#$this->result['error']++;
+					$this->result['error']++;
 					#Log::debug("ignore $sku due to stock threshold setting");
 					continue;
 				}
