@@ -103,6 +103,7 @@ class OrderPush
                 $err->line = __LINE__;
                 $err->save();
             }
+            return true;
         }
         else{
             $err = new ErrorReport;
@@ -163,8 +164,6 @@ class OrderPush
 					$err->line = __LINE__;
 					$err->save();
 				}
-				
-				return true;
 			}
 			else{
 				$err = new ErrorReport;
@@ -175,7 +174,7 @@ class OrderPush
 			}
 		}
 		
-		return false;
+		return true;
 	}
     
     /**
@@ -239,8 +238,6 @@ class OrderPush
 					$err->line = __LINE__;
 					$err->save();
 				}
-				
-				return true;
 			}
 			else{
 				$err = new ErrorReport;
@@ -251,6 +248,6 @@ class OrderPush
 			}
 		}
 		
-		return false;
+		return true;
 	}
 }
