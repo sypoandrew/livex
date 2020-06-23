@@ -365,7 +365,7 @@ class SearchMarketAPI extends LivexAPI
 					#$this->addOrReplaceTag($p, $this->tag_groups['Liv-Ex Order GUID'], $order_guid);
 					$p->additional('livex_offer_guid', $order_guid);
 					$p->additional('livex_import_api_last_processed', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
-					$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod));
+					$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod, $contractType));
 					
 					$minimumQty = ($minimumQty) ? $minimumQty : 0;
 					$price_updated = false;
@@ -848,15 +848,20 @@ class SearchMarketAPI extends LivexAPI
      * 
      * @return string
      */
-	protected function handle_availability_tag($deliveryPeriod){
-		if($deliveryPeriod == 0){
-			return 'In stock';
-		}
-		elseif($deliveryPeriod == 1){
-			return '1 week';
+	protected function handle_availability_tag($deliveryPeriod, $contractType){
+		if($contractType == 'SEP'){
+			return 'En Primeur';
 		}
 		else{
-			return $deliveryPeriod . ' weeks';
+			if($deliveryPeriod == 0){
+				return 'In stock';
+			}
+			elseif($deliveryPeriod == 1){
+				return '1 week';
+			}
+			else{
+				return $deliveryPeriod . ' weeks';
+			}
 		}
 	}
 

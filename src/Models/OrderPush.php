@@ -62,11 +62,6 @@ class OrderPush
     public function ping_test(\Illuminate\Http\Request $request)
     {
         if($this->valid_headers($request)){
-            /* $err = new ErrorReport;
-            $err->message = 'Successful PING test';
-            $err->code = $this->error_code;
-            $err->line = __LINE__;
-            $err->save(); */
             return true;
         }
         else{
