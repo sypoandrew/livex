@@ -362,7 +362,6 @@ class SearchMarketAPI extends LivexAPI
 					
 					#check for orderGUID tag and replace if required
 					$this->addOrReplaceTag($p, $this->tag_groups['Internal'], 'Liv-Ex API');
-					#$this->addOrReplaceTag($p, $this->tag_groups['Liv-Ex Order GUID'], $order_guid);
 					$p->additional('livex_offer_guid', $order_guid);
 					$p->additional('livex_import_api_last_processed', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
 					$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod, $contractType));
@@ -881,8 +880,10 @@ class SearchMarketAPI extends LivexAPI
 				#it's the same - no action required
 			}
 			else{
-				#delete the current one
-				#$p->tags()->where('tag_group_id', $group->id)->delete();
+				#delete the current availability tag (only if different)
+				if($group->name == 'Availability'){
+					$p->tags()->where('tag_group_id', $group->id)->where("name->{$this->language}", '!=', $tag_value)->delete();
+				}
 				
 				#add the new tag
 				$tag = $this->findOrCreateTag($tag_value, $group);
