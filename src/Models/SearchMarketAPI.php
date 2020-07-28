@@ -113,12 +113,17 @@ class SearchMarketAPI extends LivexAPI
 					#'condition' => '',
 					'isCompetitive' => true,
 				];
-
+				
+				if($this->environment == 'test'){
+					#for some reason this param dosn't work in test env
+					unset($params['isCompetitive']);
+				}
 
 				#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
 				$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
 				$this->set_responsedata();
 				
+				#file_put_contents(storage_path('logs/search_api_log/log-'.\Carbon\Carbon::now()->format('Y-m-d-H-i-s').'-request-headers.json'), json_encode(['headers' => $this->headers, 'json' => $params]));
 				file_put_contents(storage_path('logs/search_api_log/log-'.\Carbon\Carbon::now()->format('Y-m-d-H-i-s').'.json'), $this->response->getBody());
 				
 				#Log::debug($this->responsedata);
@@ -335,6 +340,13 @@ class SearchMarketAPI extends LivexAPI
 					continue;
 				}
 				
+				#testing special items only
+				if($this->environment == 'test' and $contractType != "X"){
+					#$this->result['error']++;
+					#Log::debug("ignore $sku due to special item");
+					#continue;
+				}
+				
 				if(setting('Livex.stock_threshold') > 0 and setting('Livex.stock_threshold') > $market['depth']['offers']['offer'][0]['quantity']){
 					$this->result['error']++;
 					#Log::debug("ignore $sku due to stock threshold setting");
@@ -363,6 +375,12 @@ class SearchMarketAPI extends LivexAPI
 					#check for orderGUID tag and replace if required
 					$this->addOrReplaceTag($p, $this->tag_groups['Internal'], 'Liv-Ex API');
 					$p->additional('livex_offer_guid', $order_guid);
+					if($contractType == 'X'){
+						$p->additional('livex_special_contract_type', 'Y');
+					}
+					else{
+						$p->additionals()->where('key', 'livex_special_contract_type')->delete();
+					}
 					$p->additional('livex_import_api_last_processed', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
 					$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod, $contractType));
 					
@@ -633,6 +651,9 @@ class SearchMarketAPI extends LivexAPI
 						#$tag = $this->findOrCreateTag($order_guid, $tag_group);
 						#$p->tags()->syncWithoutDetaching($tag);
 						$p->additional('livex_offer_guid', $order_guid);
+						if($contractType == 'X'){
+							$p->additional('livex_special_contract_type', 'Y');
+						}
 						$p->additional('livex_import_api_last_processed', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
 						
 						#create the in-bond variant

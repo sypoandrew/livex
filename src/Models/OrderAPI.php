@@ -56,9 +56,7 @@ class OrderAPI extends LivexAPI
 										$qty = (int) $item->quantity;
 										#$qty = 100; #test to handle failed order PUSH
 										
-										#dd($item);
-										$order_det = [];
-										$order_det[] = [
+										$details = [
 											'contractType' => $iteminfo['contractType'], #sib/sep/x
 											#'orderType' => $iteminfo['orderType'],
 											'orderType' => 'b', #bid
@@ -71,6 +69,16 @@ class OrderAPI extends LivexAPI
 											'merchantRef' => $order->reference,
 											'overrideFatFinger' => true, #Bypass system checks that prevent price keying errors.
 										];
+										
+										
+										#handle "special now" order...
+										if($iteminfo['contractType'] == 'X'){
+											$details['special'] = $iteminfo['special'];
+										}
+										
+										#dd($item);
+										$order_det = [];
+										$order_det[] = $details;
 										
 										#we post each order line separately so we can correctly store GUID against the SKU
 										
