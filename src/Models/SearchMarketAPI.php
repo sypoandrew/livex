@@ -595,6 +595,9 @@ class SearchMarketAPI extends LivexAPI
 						$tag = $this->findOrCreateTag('Liv-Ex API', $tag_group);
 						$p->tags()->syncWithoutDetaching($tag);
 						
+						#Availability tag
+						$this->addOrReplaceTag($p, $this->tag_groups['Availability'], $this->handle_availability_tag($deliveryPeriod, $contractType));
+						
 						#Bottle Size tag
 						$tag_group = $this->tag_groups['Bottle Size'];
 						$tag = $this->findOrCreateTag($bottle_size, $tag_group);
