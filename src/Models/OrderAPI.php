@@ -37,7 +37,9 @@ class OrderAPI extends LivexAPI
 					$proceed_with_order = $order_status->call($order);
 					$offer_guids = $order_status->get_offer_guids();
 					$response = $order_status->get_responsedata();
-					$dets = (isset($response['orderStatus']['status'])) ? $response['orderStatus']['status'] : array();
+					#$dets = (isset($response['orderStatus']['status'])) ? $response['orderStatus']['status'] : array();
+					$dets = $order_status->get_responses();
+					#dd($offer_guids);
 					#dd($dets);
 					
 					if($proceed_with_order){
@@ -48,8 +50,11 @@ class OrderAPI extends LivexAPI
 							$orderItems = $order->items()->get();
 							#dd($orderItems);
 							
-							foreach($dets as $iteminfo){
-								foreach($orderItems as $item){
+							#loop all order items
+							foreach($orderItems as $item){
+								$item_posted = false;
+								#loop Liv-ex status responses
+								foreach($dets as $iteminfo){
 									$lwin18 = $iteminfo['lwin'] . $iteminfo['vintage'] . $iteminfo['bottleInCase'] . $iteminfo['bottleSize'];
 									if(substr($item->sku, 0, -2) == 'LX'.$lwin18){
 										
@@ -96,6 +101,7 @@ class OrderAPI extends LivexAPI
 											foreach($this->responsedata['orders']['order'] as $order_data){
 												if($order_data['orderGUID']){
 													$order->additional('livex_guid_'.$order_data['orderGUID'], $item->sku);
+													$item_posted = true;
 												}
 												
 												if($order_data['errors']){
@@ -121,17 +127,18 @@ class OrderAPI extends LivexAPI
 											$err->save();
 										}
 									}
-									else{
-										#SKU doesn't start with LX
-										#Log::warning('unable to post order line '.$item->sku.' to Liv-ex');
-										
-										$err = new ErrorReport;
-										$err->message = 'Ignore SKU '.$item->sku.' when posting order to Liv-ex.';
-										$err->code = $this->error_code;
-										$err->line = __LINE__;
-										$err->order_id = $order->id;
-										$err->save();
-									}
+								}
+								
+								if(!$item_posted){
+									#Item not matched on LWIN, or not LX item - ignored and not posted to Liv-ex
+									#Log::warning('unable to post order line '.$item->sku.' to Liv-ex');
+									
+									$err = new ErrorReport;
+									$err->message = 'SKU '.$item->sku.' not posted to Liv-ex. Manual review required?';
+									$err->code = $this->error_code;
+									$err->line = __LINE__;
+									$err->order_id = $order->id;
+									$err->save();
 								}
 							}
 						}

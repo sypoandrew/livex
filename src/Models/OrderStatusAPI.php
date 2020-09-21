@@ -11,6 +11,7 @@ class OrderStatusAPI extends LivexAPI
 {
     protected $error_code = 'order_status_api';
     protected $offer_guids;
+    protected $responses = [];
     protected $errors; # user friendly error reporting
     
 	/**
@@ -113,6 +114,8 @@ class OrderStatusAPI extends LivexAPI
 
 				#Log::debug($this->responsedata);
 				if($this->responsedata['status'] == 'OK'){
+					#save the responses for accessing later if required
+					$this->responses = array_merge($this->responses, $this->responsedata['orderStatus']['status']);
 					#dd($this->responsedata);
 					foreach($this->responsedata['orderStatus']['status'] as $order_status){
 						#check if able to proceed with Aero order here...
@@ -242,5 +245,9 @@ class OrderStatusAPI extends LivexAPI
 	
 	public function get_errors(){
 		return $this->errors;
+	}
+	
+	public function get_responses(){
+		return $this->responses;
 	}
 }
