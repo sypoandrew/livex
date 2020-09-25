@@ -386,7 +386,17 @@ class SearchMarketAPI extends LivexAPI
 					
 					$minimumQty = ($minimumQty) ? $minimumQty : 0;
 					$price_updated = false;
-					$items_updated = $p->variants()->update(['stock_level' => $market['depth']['offers']['offer'][0]['quantity'], 'minimum_quantity' => $minimumQty]);
+					if($contractType == 'SEP'){
+						#we only update the EP variant stock
+						$items_updated = $p->variants()->where('sku', $p->model.'EP')->update(['stock_level' => $market['depth']['offers']['offer'][0]['quantity'], 'minimum_quantity' => $minimumQty]);
+					}
+					else{
+						#just update the IB and DP item stock level
+						$items_updated = $p->variants()->where(function($query) use ($p) {
+							$query->where('sku', $p->model.'IB')->orWhere('sku', $p->model.'DP');
+						})->update(['stock_level' => $market['depth']['offers']['offer'][0]['quantity'], 'minimum_quantity' => $minimumQty]);
+					}
+
 					
 					$in_bond_item = null;
 					
