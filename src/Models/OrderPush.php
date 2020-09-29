@@ -12,7 +12,7 @@ class OrderPush
     protected $approved_user_agents = [];
     protected $error_code = 'order_push';
     protected $environment;
-    protected $wait_time = 10;
+    protected $wait_time = 2;
     
     /**
      * Create a new class instance.
@@ -83,6 +83,7 @@ class OrderPush
     public function process_request(\Illuminate\Http\Request $request)
     {
         if($this->valid_headers($request)){
+            $stored_request = file_put_contents(storage_path('logs/order_push_log/log-'.\Carbon\Carbon::now()->format('Y-m-d-H-i-s').'.json'), json_encode($request->json()->all()));
             $data = $request->json()->all();
             #dd($data);
             if(isset($data['trade'])){
