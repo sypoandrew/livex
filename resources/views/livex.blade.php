@@ -78,7 +78,7 @@
 			<div class="w-full overflow-auto" style="height:15em;">
 				@forelse($livex_errors as $livex_error)
 					<div class="mt-3">
-						<div>@if($livex_error->order_id)<span class="font-medium">Order #{{ $livex_error->order_id }}</span> @endif<span class="font-medium">{{ $livex_error->code }}</span> <span class="text-xs text-grey">@if($livex_error->created_at) &bullet; {{ $livex_error->created_at->diffForHumans() }}</span>@endif</div>
+						<div>@if($livex_error->order_id)<span class="font-medium">Order #{{ $livex_error->order_id }}</span> @endif<span class="font-medium">{{ $livex_error->code }}</span> <span class="text-xs text-grey">@if($livex_error->created_at) &bullet; {{ $livex_error->created_at->format('d/m/Y H:i') }}</span>@endif</div>
 						<div class="py-1">{{ $livex_error->message }}</div>
 					</div>
 				@empty
