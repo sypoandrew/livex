@@ -127,7 +127,7 @@ class OrderPush
 				$order = Order::where('reference', $data['trade']['merchant_ref'])->first();
 				if($order !== null){
 					#fix to resolve issue with PUSH notificiation returning too quickly
-					sleep($this->wait_time);
+					#sleep($this->wait_time);
 					if(isset($data['trade']['order_guid'])){
 						if($order->hasAdditional('livex_guid_'.$data['trade']['order_guid'])){
 							#matched the GUID - let's save the trade id
@@ -189,7 +189,7 @@ class OrderPush
 				$order = Order::where('reference', $data['order']['merchant_ref'])->first();
 				if($order !== null){
 					#fix to resolve issue with PUSH notificiation returning too quickly
-					sleep($this->wait_time);
+					#sleep($this->wait_time);
 					if(isset($data['order']['order_status']) and ($data['order']['order_status'] == 'Suspended' or $data['order']['order_status'] == 'Deleted')){
 						if(isset($data['order']['order_guid'])){
 							if($order->hasAdditional('livex_guid_'.$data['order']['order_guid'])){
