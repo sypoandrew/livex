@@ -916,16 +916,20 @@ class SearchMarketAPI extends LivexAPI
 			else{
 				#delete the current availability tag (only if different)
 				if($group->name == 'Availability'){
-					$p->tags()->where('tag_group_id', $group->id)->where("name->{$this->language}", '!=', $tag_value)->delete();
+					#Log::debug("delete the current availability tag as different (old {$tag->name}) {$tag_value} P{$p->id}");
+					#$p->tags()->where('tag_group_id', $group->id)->where("name->{$this->language}", '!=', $tag_value)->delete();
+					$p->untag($tag);
 				}
 				
 				#add the new tag
+				#Log::debug("find/create new tag {$tag_value} for group {$group->name}");
 				$tag = $this->findOrCreateTag($tag_value, $group);
 				$p->tags()->syncWithoutDetaching($tag);
 			}
 		}
 		else{
 			#no current tag - let's add it
+			#Log::debug("find/create new tag {$tag_value} for group {$group->name}");
 			$tag = $this->findOrCreateTag($tag_value, $group);
 			$p->tags()->syncWithoutDetaching($tag);
 		}
