@@ -254,6 +254,7 @@ class SearchMarketAPI extends LivexAPI
 		
 		$this->process->complete = 1;
 		$this->process->save();
+		Log::debug("processing page {$this->process->current_page} complete");
 		
 		#testing to run same page again
 		#$this->process->reset_process();
