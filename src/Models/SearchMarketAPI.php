@@ -886,6 +886,10 @@ class SearchMarketAPI extends LivexAPI
 		if($contractType == 'SEP'){
 			return 'En Primeur';
 		}
+		elseif($contractType == 'SIB'){
+			#AT 30/11/20 - in-bond items always "up to" 4 weeks
+			return '4 weeks';
+		}
 		else{
 			if($deliveryPeriod == 0){
 				return 'In stock';
