@@ -12,7 +12,7 @@ class OrderStatusAPI extends LivexAPI
     protected $error_code = 'order_status_api';
     protected $offer_guids;
     protected $responses = [];
-    protected $errors; # user friendly error reporting
+    protected $errors = []; # user friendly error reporting
     
 	/**
      * Get Liv-ex Offer GUIDs and line info from the order items
