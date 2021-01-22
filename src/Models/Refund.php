@@ -119,6 +119,7 @@ class Refund
 		$num_trade_guids = $order->additionals()->where('key', 'like', 'livex_tradeid_%')->count();
 		$num_suspended_guids = $order->additionals()->where('key', 'like', 'livex_suspended_%')->count();
 		$num_deleted_guids = $order->additionals()->where('key', 'like', 'livex_deleted_%')->count();
+		$order_cancelled_on_livex = true;
 		
 		#dd("line count {$line_count} | LX line count {$lx_line_count} | order guids {$num_order_guids} | trade guids {$num_trade_guids} | suspended guids {$num_suspended_guids} | deleted guids {$num_deleted_guids}");
 		
@@ -200,91 +201,105 @@ class Refund
 						if(!$has_suspended_note and !$has_deleted_note){
 							#delete the bid from Liv-ex
 							$o = new OrderAPI;
-							$o->cancel($order, $guid);
+							$order_cancelled_on_livex = $o->cancel($order, $guid);
 						}
 					}
 				}
 				
 				#dd($refund_r);
 				
-				if($lx_line_count == $line_count and count($refund_r) == $line_count){
-					#full refund, including shipping
-					$amount = $order->total_rounded;
-					#dd('full refund £'.$amount.' for order '.$order->id);
-					$refunded = $this->handle_refund($amount, $order);
-					if($refunded){
-						#dd('refund success');
+				if($order_cancelled_on_livex){
+					if($lx_line_count == $line_count and count($refund_r) == $line_count){
+						#full refund, including shipping
+						$amount = $order->total_rounded;
+						#dd('full refund £'.$amount.' for order '.$order->id);
+						$refunded = $this->handle_refund($amount, $order);
+						if($refunded){
+							#dd('refund success');
+							$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+							
+							$formatted_amount = (string) $order->total_price;
+							$err = new ErrorReport;
+							$err->message = 'Refunded full order amount '.$formatted_amount;
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+							#dd('refund success');
+						}
+						else{
+							#if the refund fails, flag the order so we don't keep trying, just notify the order admin page and add error log
+							#dd('refund failed');
+							$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+							
+							$err = new ErrorReport;
+							$err->message = 'Manual review required. Refund failed';
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+						}
+					}
+					elseif($has_traded == $lx_line_count){
+						#after checking OrderStatusAPI, all items traded successfully - update the order (no refund to process)
+						#dd('Skip refund check - all traded successfully (after additional OrderStatusAPI check)');
 						$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
 						
-						$formatted_amount = (string) $order->total_price;
 						$err = new ErrorReport;
-						$err->message = 'Refunded full order amount '.$formatted_amount;
+						$err->message = 'Skip refund check - all traded successfully (after additional OrderStatusAPI check)';
 						$err->code = $this->error_code;
 						$err->line = __LINE__;
 						$err->order_id = $order->id;
 						$err->save();
-						#dd('refund success');
+						#dd('Skip refund check - all traded successfully (after additional OrderStatusAPI check)');
 					}
 					else{
-						#if the refund fails, flag the order so we don't keep trying, just notify the order admin page and add error log
-						#dd('refund failed');
-						$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+						#handle partial refund
+						$total_to_refund = 0;
+						$refundable_items = OrderItem::whereIn('sku', $refund_r)->get();
+						foreach($refundable_items as $item){
+							$total_to_refund += $item->total_rounded;
+						}
+						#dd('partial refund £'.$total_to_refund.' for order '.$order->id);
+						$refunded = $this->handle_refund($total_to_refund, $order);
 						
-						$err = new ErrorReport;
-						$err->message = 'Manual review required. Refund failed';
-						$err->code = $this->error_code;
-						$err->line = __LINE__;
-						$err->order_id = $order->id;
-						$err->save();
+						if($refunded){
+							#dd('refund success');
+							$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+							
+							$formatted_amount = $order->currency->format($total_to_refund / 100);
+							$err = new ErrorReport;
+							$err->message = 'Refunded partial order amount '.$formatted_amount;
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+						}
+						else{
+							#if the refund fails, flag the order so we don't keep trying, just notify the order admin page and add error log
+							#dd('refund failed');
+							$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
+							
+							$err = new ErrorReport;
+							$err->message = 'Manual review required. Refund failed';
+							$err->code = $this->error_code;
+							$err->line = __LINE__;
+							$err->order_id = $order->id;
+							$err->save();
+						}
 					}
 				}
-				elseif($has_traded == $lx_line_count){
-					#after checking OrderStatusAPI, all items traded successfully - update the order (no refund to process)
-					#dd('Skip refund check - all traded successfully (after additional OrderStatusAPI check)');
+				else{
+					#order failed to cancel via orderapi
+					#dd('refund failed');
 					$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
 					
 					$err = new ErrorReport;
-					$err->message = 'Skip refund check - all traded successfully (after additional OrderStatusAPI check)';
+					$err->message = 'Manual review required. Order failed to cancel on Liv-ex';
 					$err->code = $this->error_code;
 					$err->line = __LINE__;
 					$err->order_id = $order->id;
 					$err->save();
-					#dd('Skip refund check - all traded successfully (after additional OrderStatusAPI check)');
-				}
-				else{
-					#handle partial refund
-					$total_to_refund = 0;
-					$refundable_items = OrderItem::whereIn('sku', $refund_r)->get();
-					foreach($refundable_items as $item){
-						$total_to_refund += $item->total_rounded;
-					}
-					#dd('partial refund £'.$total_to_refund.' for order '.$order->id);
-					#$refunded = $this->handle_refund($total_to_refund, $order);
-					
-					if($refunded){
-						#dd('refund success');
-						$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
-						
-						$formatted_amount = $order->currency->format($total_to_refund / 100);
-						$err = new ErrorReport;
-						$err->message = 'Refunded partial order amount '.$formatted_amount;
-						$err->code = $this->error_code;
-						$err->line = __LINE__;
-						$err->order_id = $order->id;
-						$err->save();
-					}
-					else{
-						#if the refund fails, flag the order so we don't keep trying, just notify the order admin page and add error log
-						#dd('refund failed');
-						$order->additional('refund_check', \Carbon\Carbon::now()->format('d/m/Y H:i:s'));
-						
-						$err = new ErrorReport;
-						$err->message = 'Manual review required. Refund failed';
-						$err->code = $this->error_code;
-						$err->line = __LINE__;
-						$err->order_id = $order->id;
-						$err->save();
-					}
 				}
 			}
 		}
