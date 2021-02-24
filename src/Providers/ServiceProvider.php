@@ -23,6 +23,7 @@ class ServiceProvider extends ModuleServiceProvider
         'Sypo\Livex\Console\Commands\Heartbeat',
         'Sypo\Livex\Console\Commands\SearchMarket',
         'Sypo\Livex\Console\Commands\ProcessRefund',
+        'Sypo\Livex\Console\Commands\ProductFeed',
     ];
 
     public function register(): void 
