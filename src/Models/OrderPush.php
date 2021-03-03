@@ -3,6 +3,8 @@
 namespace Sypo\Livex\Models;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Aero\Cart\Models\Order;
 use Aero\Common\Models\AdditionalAttribute;
 use Sypo\Livex\Models\ErrorReport;
@@ -245,5 +247,44 @@ class OrderPush
 		}
 		
 		return true;
+	}
+	
+    
+    /**
+     * Resolve any PUSH notifications that didn't save to the order due to Order API latency
+     *
+     * @param \Aero\Cart\Models\Order $order
+     * @return void
+     */
+	public static function check_saved_push_logs(\Aero\Cart\Models\Order $order)
+	{
+		#just get the log files of the same day as the order we're looking for
+		$filenames = array_filter(File::files(storage_path('logs/order_push_log')),
+			//only files with same order date
+			function ($item) use ($order) {
+				return strpos($item, $order->created_at->format('Y-m-d-'));
+			}
+		);
+		#dd($filenames);
+		
+		foreach($filenames as $filename){
+			$contents = File::get($filename);
+			#dd($contents);
+			$data = json_decode($contents, true);
+			#dd($data);
+			if(isset($data['trade'])){
+				if(isset($data['trade']['merchant_ref'])){
+					if($order->reference == $data['trade']['merchant_ref']){
+						if(isset($data['trade']['order_guid'])){
+							if($order->hasAdditional('livex_guid_'.$data['trade']['order_guid'])){
+								#matched the GUID - let's save the trade id
+								$order->additional('livex_tradeid_'.$data['trade']['trade_id'], $data['trade']['order_guid']);
+							}
+						}
+					}
+				}
+			}
+		}
+		
 	}
 }

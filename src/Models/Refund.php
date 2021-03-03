@@ -83,6 +83,8 @@ class Refund
 		if(count($this->orders_requiring_processing) > 0){
 			$r = [];
 			foreach($this->orders_requiring_processing as $order){
+				#first resolve any PUSH notification issues
+				$this->pre_process_order($order);
 				$this->process_order($order);
 				$r[] = $order->id;
 			}
@@ -102,6 +104,41 @@ class Refund
     public function getCount()
     {
         return count($this->orders_requiring_processing);
+    }
+    
+    /**
+     * Resolve any PUSH notifications that didn't save to the order due to Order API latency
+     *
+     * @return void
+     */
+    protected function pre_process_order(\Aero\Cart\Models\Order $order)
+    {
+		
+		#make sure we ignore the bonded warehouse charge product when checking order line count...
+		$lx_line_count = $order->items()->where('sku', 'like', 'LX%')->count();
+		$num_order_guids = $order->additionals()->where('key', 'like', 'livex_guid_%')->count();
+		$num_trade_guids = $order->additionals()->where('key', 'like', 'livex_tradeid_%')->count();
+		
+		if($lx_line_count > 0){
+			#handle Liv-ex order...
+			if($lx_line_count == $num_trade_guids){
+				#all items successfully traded - excellent
+				dd('1');
+			}
+			elseif($lx_line_count != $num_order_guids){
+				#some items failed to add to order API - manual review required
+				dd('2');
+			}
+			else{
+				#order posted to order api but we haven't receieved all PUSH notifications - check saved PUSH files
+				#dd('3');
+				#dd($order->reference);
+				OrderPush::check_saved_push_logs($order);
+			}
+		}
+		else{
+			dd('4');
+		}
     }
     
     /**
