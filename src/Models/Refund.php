@@ -123,21 +123,22 @@ class Refund
 			#handle Liv-ex order...
 			if($lx_line_count == $num_trade_guids){
 				#all items successfully traded - excellent
-				dd('1');
+				#dd('1');
 			}
 			elseif($lx_line_count != $num_order_guids){
 				#some items failed to add to order API - manual review required
-				dd('2');
+				#dd('2');
 			}
 			else{
-				#order posted to order api but we haven't receieved all PUSH notifications - check saved PUSH files
+				#order posted to order api but we haven't received all PUSH notifications - check saved PUSH files
 				#dd('3');
 				#dd($order->reference);
 				OrderPush::check_saved_push_logs($order);
 			}
 		}
 		else{
-			dd('4');
+			#no Liv-ex items in order
+			#dd('4');
 		}
     }
     
