@@ -79,6 +79,7 @@ class OrderAPI extends LivexAPI
 										#handle "special now" order...
 										if($iteminfo['contractType'] == 'X'){
 											$details['special'] = $iteminfo['special'];
+											$details['specialOrderGUID'] = $iteminfo['orderGUID'];
 										}
 										
 										#dd($item);
@@ -90,6 +91,11 @@ class OrderAPI extends LivexAPI
 										$params = ['orders' => $order_det];
 										#dd($params);
 										#dd(json_encode($params));
+										
+										if($iteminfo['contractType'] == 'X'){
+											#Log::debug('special order:');
+											#Log::debug($params);
+										}
 
 										#$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params, 'debug' => true]);
 										$this->response = $this->client->post($url, ['headers' => $this->headers, 'json' => $params]);
