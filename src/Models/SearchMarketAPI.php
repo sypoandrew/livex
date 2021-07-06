@@ -642,9 +642,11 @@ class SearchMarketAPI extends LivexAPI
 						}
 						
 						#Colour tag
+						if($colour){
 						$tag_group = $this->tag_groups['Colour'];
 						$tag = $this->findOrCreateTag($colour, $tag_group);
 						$p->tags()->syncWithoutDetaching($tag);
+						}
 						
 						#Vintage tag
 						$tag_group = $this->tag_groups['Vintage'];
